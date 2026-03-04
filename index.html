@@ -2,40 +2,39 @@
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,viewport-fit=cover">
-<title>BoardHub — Storyboard OS</title>
+<title>rivennellHub — animation OS</title>
+<!-- Preconnect FIRST — browser starts DNS/TLS before any scripts -->
+<link rel="preconnect" href="https://unpkg.com">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://www.gstatic.com">
 <!--
-  BoardHub v17 — Responsive Build
-  Inherits all v16 optimizations plus:
-  • Auto-detects mobile via matchMedia hook (768px breakpoint)
-  • Desktop: fixed sidebar, full layouts
-  • Mobile: hamburger drawer, stacked columns, list→detail navigation
-  • All grids collapse to 1-column on mobile
-  • Gantt chart wraps in horizontal scroll container
-  • ProjectDetail cover compact, Animatics/Research use list→editor pattern
-  • IdeasLab: note list + tasks stack vertically, detail replaces list
-  • All modals slide up as bottom sheets on mobile
-  • Tab bars scroll horizontally on mobile
-  • Touch-friendly: larger tap targets via CSS media queries
+  BoardHub v18 — Performance Build
+  • Instant CSS loading screen (renders before any JS)
+  • Firebase lazy-loaded after first paint (~400KB off critical path)
+  • Babel runs JSX-only transform (skips unnecessary env polyfills)
+  • Preconnect hints at top of <head> for parallel DNS/TLS
 -->
+<!-- Critical render-path scripts only -->
 <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<script src="https://unpkg.com/lucide@latest"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
+<script src="https://unpkg.com/@babel/standalone@7.23.9/babel.min.js"></script>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.js"></script>
+<!-- Firebase loaded LAZILY after first paint — see _lazyFirebase() below -->
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Figtree:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#F4F1ED;--surface:#FDFCFA;--border:#E8E3DC;--border-2:#D5CCBF;--text:#1C1917;--muted:#78716C;}
 *,*::before,*::after{box-sizing:border-box;}
+/* Offscreen rendering optimization - browser skips layout/paint for non-visible content */
+main>div{content-visibility:auto;contain-intrinsic-size:auto 500px;}
 body{font-family:'Figtree',sans-serif;background:var(--bg);color:var(--text);margin:0;}
 h1,h2,h3,.serif{font-family:'Cormorant Garamond',serif;}
-img{loading:lazy;}
+img{max-width:100%;}
 ::-webkit-scrollbar{width:5px;height:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--border-2);border-radius:10px;}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;transition:border-color .2s,box-shadow .2s;}
 .card:hover{border-color:var(--border-2);box-shadow:0 4px 20px rgba(28,25,23,.05);}
+.card .card-delete-btn{position:absolute;top:8px;left:8px;background:rgba(28,25,23,.55);backdrop-filter:blur(4px);border:none;border-radius:6px;padding:4px 6px;cursor:pointer;color:white;opacity:0;transition:opacity .2s;z-index:2;}
+.card:hover .card-delete-btn{opacity:1;}
 .card-click{cursor:pointer;}.card-click:hover{border-color:var(--text)!important;box-shadow:0 4px 20px rgba(28,25,23,.07)!important;}
 .btn{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;border-radius:8px;font-family:'Figtree',sans-serif;font-size:.85rem;font-weight:500;cursor:pointer;transition:all .18s;border:none;outline:none;}
 .btn-dark{background:var(--text);color:white;}.btn-dark:hover{opacity:.85;transform:translateY(-1px);}
@@ -48,6 +47,7 @@ img{loading:lazy;}
 .tag-green{background:#E8F5EC;color:#276b3e;}.tag-yellow{background:#FEF9E7;color:#92700b;}.tag-gray{background:#F0EDE9;color:var(--muted);}.tag-red{background:#FDEDED;color:#9B1C1C;}.tag-blue{background:#EFF6FF;color:#1e40af;}
 .input-bare{background:transparent;outline:none;border-bottom:1px solid var(--border);font-family:'Figtree',sans-serif;color:var(--text);transition:border-color .2s;}.input-bare:focus{border-color:var(--text);}
 .input-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-family:'Figtree',sans-serif;font-size:.85rem;color:var(--text);outline:none;transition:border-color .2s;width:100%;}.input-box:focus{border-color:var(--text);}
+input[type="date"]{font-family:'Figtree',sans-serif;}
 .label{font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);}
 .tab-btn{padding:10px 0;margin-right:24px;background:none;border:none;cursor:pointer;font-family:'Figtree',sans-serif;font-size:.85rem;font-weight:500;transition:all .15s;margin-bottom:-1px;}
 @keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
@@ -55,7 +55,6 @@ img{loading:lazy;}
 @keyframes overlayIn{from{opacity:0;}to{opacity:1;}}
 @keyframes modalIn{from{opacity:0;transform:scale(.96) translateY(8px);}to{opacity:1;transform:scale(1) translateY(0);}}
 .overlay{position:fixed;inset:0;height:100vh;background:transparent;z-index:100;display:flex;align-items:center;justify-content:center;animation:overlayIn .2s ease;padding-top:0px;padding-bottom:160px;padding-left:80px;padding-right:160px;}
-.overlay-offset{position:fixed;inset:0;height:100vh;background:transparent;z-index:100;display:flex;align-items:center;justify-content:center;animation:overlayIn .2s ease;padding-top:0px;padding-bottom:160px;padding-left:80px;padding-right:160px;}
 .modal{background:var(--surface);border-radius:18px;border:1px solid var(--border);padding:24px 28px;width:100%;animation:modalIn .25s ease;box-shadow:0 20px 60px rgba(28,25,23,.15);max-height:95vh;overflow-y:auto;}
 .upload-zone{border:2px dashed var(--border);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:border-color .2s,background .2s;padding:24px;text-align:center;color:var(--muted);}
 .upload-zone:hover{border-color:var(--text);background:rgba(28,25,23,.02);color:var(--text);}
@@ -76,7 +75,7 @@ img{loading:lazy;}
 .gantt-bar{transition:opacity .12s,box-shadow .12s;}.gantt-bar:hover{opacity:.88;}
 .gantt-row-left:hover{background:rgba(28,25,23,.04)!important;}
 
-/* Hover utilities — replaces onMouseEnter/Leave JS handlers */
+/* Hover utilities - replaces onMouseEnter/Leave JS handlers */
 .hover-text:hover{color:var(--text)!important;}
 .hover-danger:hover{color:#DC2626!important;}
 .hover-surface:hover{background:var(--surface);}
@@ -87,7 +86,7 @@ img{loading:lazy;}
 /* Pomodoro stats slide-in panel */
 @keyframes slideInStats{from{opacity:0;transform:translateX(20px);}to{opacity:1;transform:translateX(0);}}
 
-/* ─── BOTTOM TAB BAR ────────────────────────────────────────────────────── */
+/* - BOTTOM TAB BAR - */
 .bottom-tab-bar{position:fixed;bottom:0;left:0;right:0;z-index:80;background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:stretch;justify-content:space-around;padding:4px 0 env(safe-area-inset-bottom,0);height:56px;}
 .bottom-tab-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;flex:1;border:none;background:none;cursor:pointer;font-family:'Figtree',sans-serif;font-size:.62rem;font-weight:600;color:var(--muted);padding:6px 2px;transition:color .15s;-webkit-tap-highlight-color:transparent;letter-spacing:.02em;}
 .bottom-tab-item.active{color:var(--text);}
@@ -107,7 +106,7 @@ img{loading:lazy;}
 .fab{position:fixed;bottom:72px;right:16px;width:56px;height:56px;border-radius:50%;background:var(--text);color:white;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(28,25,23,.25);z-index:70;transition:transform .15s;-webkit-tap-highlight-color:transparent;}
 .fab:active{transform:scale(.92);}
 
-/* ─── MOBILE-LAYOUT COMPONENT STYLES (always applied — used whenever isMobile=true) ── */
+/* - MOBILE-LAYOUT COMPONENT STYLES (always applied - used whenever isMobile=true) - */
 /* Compact list rows */
 .compact-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border);background:var(--surface);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .1s;min-height:64px;}
 .compact-row:active{background:var(--bg);}
@@ -128,11 +127,11 @@ img{loading:lazy;}
 .vtimeline-text{flex:1;font-size:.9rem;font-weight:500;}
 .vtimeline-date{font-size:.78rem;color:var(--muted);flex-shrink:0;}
 
-/* ─── RESPONSIVE ────────────────────────────────────────────────────────── */
+/* - RESPONSIVE - */
 @media(max-width:768px){
   /* Prevent horizontal scroll */
   html,body{overflow-x:hidden!important;max-width:100vw!important;}
-  /* Global spacing — room for bottom tab */
+  /* Global spacing - room for bottom tab */
   .main-mobile{margin-left:0!important;padding:16px 16px 72px!important;padding-top:0!important;min-height:calc(100vh - 56px)!important;overflow-x:hidden!important;width:100%!important;box-sizing:border-box!important;}
   .fade-up{animation:none!important;max-width:100%!important;box-sizing:border-box!important;}
   
@@ -140,47 +139,68 @@ img{loading:lazy;}
   .overlay,.overlay-offset{padding:0!important;padding-left:0!important;align-items:flex-end!important;}
   .modal{border-radius:18px 18px 0 0!important;max-height:92vh!important;padding:24px 20px!important;}
   
-  /* Save toast — above tab bar */
+  /* Save toast - above tab bar */
   .save-toast{left:50%!important;bottom:72px!important;}
   
   /* Cards */
   .card{border-radius:12px;overflow:hidden;}
   
-  /* Tag — readable on mobile */
+  /* Tag - readable on mobile */
   .tag{padding:5px 10px;font-size:.72rem;}
   
-  /* Buttons — 48px touch targets */
+  /* Buttons - 48px touch targets */
   .btn{padding:12px 18px;font-size:.9rem;min-height:44px;}
   .btn-ghost{padding:10px 12px;min-height:44px;}
   .nav-item{padding:14px 16px;font-size:.95rem;}
   
-  /* Input — 16px prevents iOS zoom */
+  /* Input - 16px prevents iOS zoom */
   .input-box{padding:12px 14px;font-size:16px!important;min-height:48px;}
   textarea{font-size:16px!important;}
   select{font-size:16px!important;min-height:44px;}
   input{font-size:16px!important;}
   
-  /* Label — readable */
+  /* Label - readable */
   .label{font-size:.72rem;}
   
-  /* Tab buttons — larger tap area */
+  /* Tab buttons - larger tap area */
   .tab-btn{margin-right:0;font-size:.88rem;padding:12px 16px;}
   
   /* Upload zone */
   .upload-zone{padding:20px;}
   
-  /* Cover edit — always show on mobile (no hover) */
+  /* Cover edit - always show on mobile (no hover) */
   .cover-wrap .cover-edit-overlay{background:rgba(0,0,0,.3)!important;opacity:1!important;}
 }
 </style>
 </head>
 <body>
-<div id="root"></div>
-<script type="text/babel">
+<div id="root">
+  <!-- Instant loading screen — pure CSS, renders before any JS loads -->
+  <div id="splash" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#F4F1ED;font-family:serif;gap:10px">
+    <div style="font-size:2.4rem;font-weight:500;letter-spacing:-0.02em;color:#1C1917">Board<span style="font-style:italic;font-weight:300">Hub</span></div>
+    <div style="font-size:.65rem;color:#78716C;letter-spacing:.1em;text-transform:uppercase">Carregando...</div>
+    <div style="width:120px;height:3px;background:#E8E3DC;border-radius:3px;overflow:hidden;margin-top:8px">
+      <div style="width:40%;height:100%;background:#1C1917;border-radius:3px;animation:splashBar 1.2s ease infinite"></div>
+    </div>
+  </div>
+  <style>#splash{transition:opacity .3s}@keyframes splashBar{0%{transform:translateX(-100%)}50%{transform:translateX(150%)}100%{transform:translateX(250%)}}</style>
+  <script>
+    window.__splashTimeout=setTimeout(function(){
+      var s=document.getElementById('splash');if(!s)return;
+      s.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;gap:12px;font-family:sans-serif;padding:24px;text-align:center"><div style="font-size:2.4rem;font-weight:500;font-family:serif;color:#1C1917">BoardHub</div><div style="font-size:.8rem;color:#DC2626">Erro ao carregar. Verifique sua conexao e recarregue.</div><button onclick="location.reload()" style="margin-top:8px;padding:8px 20px;background:#1C1917;color:white;border:none;border-radius:8px;cursor:pointer">Recarregar</button></div>';
+    },12000);
+    window.addEventListener('error',function(e){
+      clearTimeout(window.__splashTimeout);
+      var s=document.getElementById('splash');if(!s)return;
+      s.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;gap:12px;font-family:sans-serif;padding:24px;text-align:center"><div style="font-size:2.4rem;font-weight:500;font-family:serif;color:#1C1917">BoardHub</div><div style="font-size:.8rem;color:#DC2626;max-width:400px">Erro: '+e.message+'</div><button onclick="location.reload()" style="margin-top:8px;padding:8px 20px;background:#1C1917;color:white;border:none;border-radius:8px;cursor:pointer">Recarregar</button></div>';
+    });
+  </script>
+</div>
+<script type="text/babel" data-presets="react">
 const { useState, useEffect, useRef, useMemo } = React;
 
-// ─── LOCAL STORAGE ────────────────────────────────────────────────────────────
-const LS_KEY = 'hub_v2';
+// - LOCAL STORAGE -
+const LS_KEY = 'boardhub_v2';
 const lsLoad = () => { try { const s = localStorage.getItem(LS_KEY); return s ? JSON.parse(s) : null; } catch { return null; } };
 const lsSave = s => {
   try { localStorage.setItem(LS_KEY, JSON.stringify(s)); }
@@ -188,12 +208,12 @@ const lsSave = s => {
     // Quota exceeded — strip any accidental base64 that slipped through (single pass)
     try {
       localStorage.setItem(LS_KEY, JSON.stringify(s, (k,v)=>typeof v==='string'&&v.startsWith('data:image')?'':v));
-    } catch { /* silent — idb:// refs and https:// URLs never cause quota issues */ }
+    } catch { /* silent - idb:// refs and https:// URLs never cause quota issues */ }
   }
 };
 const persisted = lsLoad();
 
-// ─── SEED DATA ────────────────────────────────────────────────────────────────
+// - SEED DATA -
 const SEED = {
   projects:[
     {id:1,type:'work',title:"Comercial Nike Summer",client:"Wieden+Kennedy",status:"Em Andamento",startDate:"2024-11-01",deadline:"2024-11-22",deleted:false,
@@ -224,7 +244,7 @@ const SEED = {
   ],
   mentors:[
     {id:1,name:"Hayao Miyazaki",area:"Narrativa Visual",medium:"Animação",notes:"Estudar uso de silêncio e natureza. Nausicaä é essencial.",links:"https://ghibli.jp",active:true,main:true,photo:"",photos:[],deleted:false},
-    {id:2,name:"Moebius",area:"Composição de Quadro",medium:"HQ / Story",notes:"Linha clara, horizonte baixo. Incal é referência obrigatória.",links:"",active:true,main:false,photo:"",photos:[],deleted:false}
+    {id:2,name:"Moebius",area:"Composição de Quadro",medium:"HQ / Storyboard",notes:"Linha clara, horizonte baixo. Incal é referência obrigatória.",links:"",active:true,main:false,photo:"",photos:[],deleted:false}
   ],
   tasks:[
     {id:1,text:"Revisar roughs do Nike",done:false,noteId:null},
@@ -240,12 +260,12 @@ const SEED = {
 };
 
 const socialTemplates=[
-  {label:"Bastidores",text:"🎬 Bastidores do projeto de hoje. Do rascunho à arte final.\n\nCada quadro é uma decisão de câmera.\n\n#story #bastidores #artprocess"},
-  {label:"Novo Job",text:"🔥 Novo projeto saindo do forno!\n\nFiquei responsável por visualizar essa história incrível. Mais em breve.\n\n#story #directiondesign"},
-  {label:"Estudo Diário",text:"📚 Estudo do dia — [FILME/LIVRO].\n\nO que aprendi: [INSIGHT]\n\n#estudos #filmanalysis #visualdevelopment"}
+  {label:"Bastidores",text:" Bastidores do projeto de hoje. Do rascunho à arte final.\n\nCada quadro é uma decisão de câmera.\n\n#storyboard #bastidores #artprocess"},
+  {label:"Novo Job",text:" Novo projeto saindo do forno!\n\nFiquei responsável por visualizar essa história incrível. Mais em breve.\n\n#storyboard #directiondesign"},
+  {label:"Estudo Diário",text:" Estudo do dia — [FILME/LIVRO].\n\nO que aprendi: [INSIGHT]\n\n#estudos #filmanalysis #visualdevelopment"}
 ];
 
-// ─── UTILS ────────────────────────────────────────────────────────────────────
+// - UTILS -
 const statusTag=s=>({'Em Andamento':'tag-green','Pausado':'tag-yellow','Concluído':'tag-gray','Cancelado':'tag-red'}[s]||'tag-gray');
 
 // Icon: renders lucide icons as pure React SVGs with one-time caching per icon name.
@@ -286,7 +306,7 @@ const Icon=({name,size=16,style={}})=>{
 const Field=({label,children})=><div style={{display:'flex',flexDirection:'column',gap:6}}><span className="label">{label}</span>{children}</div>;
 const readFile=file=>new Promise(res=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.readAsDataURL(file);});
 
-// ─── RESPONSIVE HOOK ─────────────────────────────────────────────────────────
+// - RESPONSIVE HOOK -
 // isMobileUA: true if the browser is on a phone/tablet, regardless of viewport.
 // This is the reliable ground-truth when served over HTTPS (e.g. GitHub Pages),
 // where some Android browsers report a larger layout viewport on first paint.
@@ -314,37 +334,41 @@ const useIsMobile=(breakpoint=768)=>{
   return autoMobile;
 };
 
-// ─── INDEXEDDB IMAGE STORE (unlimited local storage) ─────────────────────────
+// - INDEXEDDB IMAGE STORE (unlimited local storage) -
 // Images are stored as Blobs in IndexedDB (no 5 MB quota like localStorage).
 // The app state only holds a lightweight reference: "idb://<key>".
 // At render time, useIdbUrl() resolves these references to object URLs.
-const IDB_NAME='hub_images';
+const IDB_NAME='boardhub_images';
 const IDB_STORE='images';
 let _idb=null;
+let _idbPending=null;
 
 // FIX 1: Reset the cached IDB connection whenever it closes unexpectedly.
-// Without this, openIdb() returns a closed/invalid DB handle forever, causing
-// all subsequent image reads to silently fail.
-const _resetIdb=()=>{ _idb=null; };
+const _resetIdb=()=>{ _idb=null; _idbPending=null; };
 
-const openIdb=()=>new Promise((res,rej)=>{
+const openIdb=()=>{
   // If we have a valid open connection, reuse it
   if(_idb && _idb.objectStoreNames){
-    try{ _idb.transaction(IDB_STORE,'readonly').abort(); return res(_idb); }
-    catch{ _idb=null; /* connection was stale — fall through to re-open */ }
+    try{ _idb.transaction(IDB_STORE,'readonly').abort(); return Promise.resolve(_idb); }
+    catch{ _idb=null; /* connection was stale - fall through to re-open */ }
   }
-  const req=indexedDB.open(IDB_NAME,1);
-  req.onupgradeneeded=e=>e.target.result.createObjectStore(IDB_STORE);
-  req.onsuccess=e=>{
-    _idb=e.target.result;
-    // Listen for browser-initiated close (memory pressure, page unload, etc.)
-    _idb.onclose=_resetIdb;
-    _idb.onerror=()=>_resetIdb();
-    _idb.onversionchange=()=>{ _idb.close(); _resetIdb(); };
-    res(_idb);
-  };
-  req.onerror=e=>{ _resetIdb(); rej(e.target.error); };
-});
+  // Coalesce concurrent open requests
+  if(_idbPending)return _idbPending;
+  _idbPending=new Promise((res,rej)=>{
+    const req=indexedDB.open(IDB_NAME,1);
+    req.onupgradeneeded=e=>e.target.result.createObjectStore(IDB_STORE);
+    req.onsuccess=e=>{
+      _idb=e.target.result;
+      _idbPending=null;
+      _idb.onclose=_resetIdb;
+      _idb.onerror=()=>_resetIdb();
+      _idb.onversionchange=()=>{ _idb.close(); _resetIdb(); };
+      res(_idb);
+    };
+    req.onerror=e=>{ _resetIdb(); rej(e.target.error); };
+  });
+  return _idbPending;
+};
 
 const idbPut=(key,blob)=>openIdb().then(db=>new Promise((res,rej)=>{
   try{
@@ -409,8 +433,8 @@ const BgImg=({src,className,style,children,...props})=>{
   return <div className={className} style={{...style,backgroundImage:url?`url(${url})`:'none'}} {...props}>{children}</div>;
 };
 
-// ─── FIREBASE CONFIG & INIT ──────────────────────────────────────────────────
-const FB_CFG_LS='hub_firebase_cfg';
+// - FIREBASE CONFIG & INIT -
+const FB_CFG_LS='boardhub_firebase_cfg';
 const loadFbCfg=()=>{try{return JSON.parse(localStorage.getItem(FB_CFG_LS))||{};}catch{return{};}};
 const saveFbCfg=cfg=>{try{localStorage.setItem(FB_CFG_LS,JSON.stringify(cfg));}catch{}};
 
@@ -426,8 +450,38 @@ const DEFAULT_FB_CFG={
   appId:"1:817788828725:web:612f5d62662b88274d457c"
 };
 
-const initFirebase=()=>{
+// - LAZY FIREBASE LOADER -
+// Firebase SDK (~400KB) is loaded AFTER first paint to avoid blocking render.
+let _fbScriptsLoaded=false;
+let _fbScriptsPromise=null;
+
+const _loadFirebaseScripts=()=>{
+  if(_fbScriptsLoaded)return Promise.resolve();
+  if(_fbScriptsPromise)return _fbScriptsPromise;
+  const urls=[
+    'https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js',
+    'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js',
+    'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js',
+    'https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js',
+  ];
+  // Load sequentially — each script depends on the previous
+  _fbScriptsPromise=urls.reduce((chain,src)=>
+    chain.then(()=>new Promise((res,rej)=>{
+      const s=document.createElement('script');
+      s.src=src;s.onload=res;s.onerror=rej;
+      document.head.appendChild(s);
+    }))
+  ,Promise.resolve()).then(()=>{_fbScriptsLoaded=true;}).catch(e=>{
+    console.warn('[BoardHub] Firebase scripts failed to load:',e);
+    _fbScriptsPromise=null; // allow retry
+  });
+  return _fbScriptsPromise;
+};
+
+const initFirebase=async()=>{
   if(_fbReady)return true;
+  await _loadFirebaseScripts();
+  if(typeof firebase==='undefined')return false;
   const saved=loadFbCfg();
   const cfg=saved.apiKey?saved:DEFAULT_FB_CFG;
   if(!cfg.apiKey)return false;
@@ -436,20 +490,19 @@ const initFirebase=()=>{
     _fbAuth=firebase.auth();
     _fbDb=firebase.firestore();
     _fbStorage=firebase.storage();
-    // Enable offline persistence (multi-tab aware)
     _fbDb.enablePersistence({synchronizeTabs:true}).catch(()=>{});
     _fbReady=true;
     return true;
-  }catch(e){console.error('[Hub] Firebase init:',e);return false;}
+  }catch(e){console.error('[BoardHub] Firebase init:',e);return false;}
 };
 
-// Attempt to init on load (if config already saved from a previous session)
-initFirebase();
+// Start loading Firebase scripts in background immediately (but don't block)
+_loadFirebaseScripts();
 
 // Firestore state doc ref for a user
 const getStateRef=uid=>{
   if(!_fbDb)return null;
-  return _fbDb.collection('users').doc(uid).collection('hub').doc('state');
+  return _fbDb.collection('users').doc(uid).collection('boardhub').doc('state');
 };
 
 // Push stripped state to Firestore
@@ -491,14 +544,14 @@ const _storeIdb=async(file)=>{
   return 'idb://'+key;
 };
 
-// Core upload: Firebase Storage → Imgur → IDB
+// Core upload: Firebase Storage \u2192 Imgur \u2192 IDB
 const _uploadSingle=async(file)=>{
   if(_fbReady&&_fbAuth?.currentUser){
     try{return await uploadToFirebaseStorage(file,_fbAuth.currentUser.uid);}
-    catch(e){console.warn('[Hub] Firebase Storage failed:',e.message);}
+    catch(e){console.warn('[BoardHub] Firebase Storage failed:',e.message);}
   }
-  try{return await _uploadImgur(file);}catch(e){console.warn('[Hub] Imgur failed:',e.message);}
-  console.warn('[Hub] Falling back to local IDB. Image will NOT sync across devices.');
+  try{return await _uploadImgur(file);}catch(e){console.warn('[BoardHub] Imgur failed:',e.message);}
+  console.warn('[BoardHub] Falling back to local IDB. Image will NOT sync across devices.');
   return await _storeIdb(file);
 };
 
@@ -534,7 +587,7 @@ const reuploadLocalImages=async(state,onProgress)=>{
         if(!url){try{url=await _uploadImgur(file);}catch{}}
         if(url)map['idb://'+key]=url;
       }
-    }catch(e){console.warn('[Hub] Re-upload failed for',key,e);}
+    }catch(e){console.warn('[BoardHub] Re-upload failed for',key,e);}
     if(onProgress)onProgress(i+1,keys.length);
     if(!(_fbReady&&_fbAuth?.currentUser)&&i<keys.length-1){
       await new Promise(r=>setTimeout(r,BULK_UPLOAD_DELAY_MS));
@@ -551,7 +604,7 @@ const stripBase64=obj=>{
   return obj;
 };
 
-// Resolve idb:// keys → base64 data URLs (used for manual JSON export)
+// Resolve idb:// keys \u2192 base64 data URLs (used for manual JSON export)
 const blobToBase64=blob=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(blob);});
 const resolveIdbRefs=async obj=>{
   if(Array.isArray(obj))return Promise.all(obj.map(resolveIdbRefs));
@@ -587,7 +640,7 @@ const rehydrateIdbRefs=(obj,map)=>{
 
 
 
-// ─── TRASH BANNER ─────────────────────────────────────────────────────────────
+// - TRASH BANNER -
 const TrashBanner=({label,onExit})=>(
   <div style={{background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:10,padding:'10px 18px',marginBottom:20,display:'flex',alignItems:'center',gap:10,fontSize:'.83rem',color:'#991B1B'}}>
     <Icon name="trash-2" size={14}/>
@@ -596,8 +649,14 @@ const TrashBanner=({label,onExit})=>(
   </div>
 );
 
-// ─── MODAL ────────────────────────────────────────────────────────────────────
-const Modal=({title,onClose,children,width=480})=>(
+// - MODAL -
+const Modal=({title,onClose,children,width=480})=>{
+  useEffect(()=>{
+    const h=e=>{if(e.key==='Escape')onClose();};
+    document.addEventListener('keydown',h);
+    return()=>document.removeEventListener('keydown',h);
+  },[onClose]);
+  return(
   <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
     <div className="modal" style={{maxWidth:width}}>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:24}}>
@@ -607,11 +666,11 @@ const Modal=({title,onClose,children,width=480})=>(
       {children}
     </div>
   </div>
-);
+);};
 
-// ─── SIDEBAR ──────────────────────────────────────────────────────────────────
+// - SIDEBAR -
 const NAV_ITEMS=[
-  {id:'dash',icon:'layout-dash',label:'Visão Geral'},
+  {id:'dashboard',icon:'layout-dashboard',label:'Visão Geral'},
   {id:'projects', icon:'folder-open',     label:'Projetos'},
   {id:'gallery',  icon:'image',           label:'Galeria'},
   {id:'ideas',    icon:'lightbulb',       label:'Ideias'},
@@ -624,22 +683,21 @@ const NAV_ITEMS=[
 // Desktop: fixed left sidebar
 const SidebarDesktop=React.memo(({activeView,setView,saveFlash,isMobile,setForceMobile})=>(
   <aside style={{width:220,minWidth:220,borderRight:'1px solid var(--border)',height:'100vh',position:'fixed',top:0,left:0,background:'var(--surface)',display:'flex',flexDirection:'column',padding:'28px 16px',zIndex:30,overflowY:'auto'}}>
-    <div onClick={()=>setView('dash')} style={{cursor:'pointer',marginBottom:32,padding:'0 4px'}}>
-      <div style={{fontFamily:'Cormorant Garamond,serif',fontSize:'2rem',fontWeight:500,letterSpacing:'-0.02em',lineHeight:1,color:'var(--text)'}}><span style={{fontStyle:'italic',fontWeight:300}}>Hub</span></div>
+    <div onClick={()=>setView('dashboard')} style={{cursor:'pointer',marginBottom:32,padding:'0 4px'}}>
+      <div style={{fontFamily:'Cormorant Garamond,serif',fontSize:'2rem',fontWeight:500,letterSpacing:'-0.02em',lineHeight:1,color:'var(--text)'}}>rivennell<span style={{fontStyle:'italic',fontWeight:300}}>Hub</span></div>
       <div style={{fontSize:'.65rem',color:'var(--muted)',letterSpacing:'.1em',textTransform:'uppercase',marginTop:2}}>animation OS</div>
     </div>
     <nav style={{display:'flex',flexDirection:'column',gap:2,flex:1}}>
       {NAV_ITEMS.map(item=>(
-        <button key={item.id} onClick={()=>setView(item.id)} className={`nav-item ${activeView.startsWith(item.id)?'active':''}`}>
+        <button key={item.id} onClick={()=>setView(item.id)} className={`nav-item ${activeView.startsWith(item.id)||(item.id==='projects'&&activeView==='project-detail')?'active':''}`}>
           <Icon name={item.icon} size={15}/>{item.label}
         </button>
       ))}
     </nav>
     <div style={{borderTop:'1px solid var(--border)',paddingTop:14,marginTop:8,display:'flex',flexDirection:'column',gap:10}}>
       <button onClick={()=>setForceMobile(true)}
-        style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',borderRadius:8,border:'1px solid var(--border)',background:'transparent',cursor:'pointer',fontFamily:'Figtree,sans-serif',fontSize:'.78rem',fontWeight:500,color:'var(--muted)',transition:'all .15s',width:'100%'}}
-        onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--text)';e.currentTarget.style.color='var(--text)';}}
-        onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.color='var(--muted)';}}>
+        className="hover-border-text hover-text"
+        style={{display:'flex',alignItems:'center',gap:8,padding:'8px 10px',borderRadius:8,border:'1px solid var(--border)',background:'transparent',cursor:'pointer',fontFamily:'Figtree,sans-serif',fontSize:'.78rem',fontWeight:500,color:'var(--muted)',transition:'all .15s',width:'100%'}}>
         <Icon name="smartphone" size={13}/> Visualização Mobile
       </button>
       <div style={{display:'flex',alignItems:'center',gap:7,fontSize:'.72rem',transition:'color .4s',color:saveFlash?'#276b3e':'var(--muted)'}}>
@@ -672,7 +730,7 @@ const SidebarMobile=React.memo(({activeView,setView,saveFlash,setForceMobile})=>
     <>
       {/* Header bar */}
       <div className="mobile-header">
-        <span className="mobile-header-title">rivennell<span style={{fontStyle:'italic',fontWeight:300}}>Hub</span></span>
+        <span className="mobile-header-title">Board<span style={{fontStyle:'italic',fontWeight:300}}>Hub</span></span>
         <div style={{display:'flex',alignItems:'center',gap:8}}>
           <span style={{fontSize:'.72rem',color:'var(--muted)',fontWeight:500}}>{currentLabel}</span>
           <div style={{fontSize:'.65rem',transition:'color .4s',color:saveFlash?'#276b3e':'var(--muted)',display:'flex',alignItems:'center',gap:4}}>
@@ -683,7 +741,7 @@ const SidebarMobile=React.memo(({activeView,setView,saveFlash,setForceMobile})=>
       {/* Bottom tab bar */}
       <nav className="bottom-tab-bar">
         {TAB_ITEMS.map(item=>(
-          <button key={item.id} onClick={()=>go(item.id)} className={`bottom-tab-item ${activeView.startsWith(item.id)?'active':''}`}>
+          <button key={item.id} onClick={()=>go(item.id)} className={`bottom-tab-item ${activeView.startsWith(item.id)||(item.id==='projects'&&activeView==='project-detail')?'active':''}`}>
             <Icon name={item.icon} size={22}/>{item.label}
           </button>
         ))}
@@ -719,7 +777,7 @@ const SidebarMobile=React.memo(({activeView,setView,saveFlash,setForceMobile})=>
   );
 });
 
-// ─── POMODORO ─────────────────────────────────────────────────────────────────
+// - POMODORO -
 const POMO_LS = 'boardhub_pomo_v3';
 
 const pomoLoad = function() {
@@ -779,9 +837,9 @@ const pomoFmtMonth = function(mk) {
   } catch(e) { return mk; }
 };
 
-// ─── POMODORO TIMER (with built-in stats panel) ───────────────────────────────
-// ─── DRAGGABLE POMO WIDGET ───────────────────────────────────────────────────
-const PomoWidget = ({ timeStr, isActive, isFocus, pct, toggle, reset, onClose }) => {
+// - POMODORO TIMER (with built-in stats panel) -
+// - DRAGGABLE POMO WIDGET -
+const PomoWidget = React.memo(({ timeStr, isActive, isFocus, pct, toggle, reset, onClose }) => {
   const [pos, setPos] = useState({ x: window.innerWidth - 260, y: window.innerHeight - 200 });
   const dragging = useRef(false);
   const offset = useRef({ x: 0, y: 0 });
@@ -800,20 +858,26 @@ const PomoWidget = ({ timeStr, isActive, isFocus, pct, toggle, reset, onClose })
   useEffect(() => {
     const onMove = e => {
       if (!dragging.current) return;
+      const clientX=e.touches?e.touches[0].clientX:e.clientX;
+      const clientY=e.touches?e.touches[0].clientY:e.clientY;
       const el = widgetRef.current;
       const maxX = window.innerWidth - (el ? el.offsetWidth : 220);
       const maxY = window.innerHeight - (el ? el.offsetHeight : 140);
       setPos({
-        x: Math.max(0, Math.min(e.clientX - offset.current.x, maxX)),
-        y: Math.max(0, Math.min(e.clientY - offset.current.y, maxY)),
+        x: Math.max(0, Math.min(clientX - offset.current.x, maxX)),
+        y: Math.max(0, Math.min(clientY - offset.current.y, maxY)),
       });
     };
     const onUp = () => { dragging.current = false; };
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchmove', onMove, {passive:true});
+    window.addEventListener('touchend', onUp);
     return () => {
       window.removeEventListener('mousemove', onMove);
       window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onUp);
     };
   }, []);
 
@@ -832,7 +896,7 @@ const PomoWidget = ({ timeStr, isActive, isFocus, pct, toggle, reset, onClose })
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Icon name="grip-horizontal" size={13} style={{ color: 'var(--muted)' }}/>
           <span style={{ fontSize: '.65rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.08em', color: 'var(--muted)' }}>
-            {isFocus ? '🧠 Foco' : '☕ Pausa'}
+            {isFocus ? ' Foco' : '☕ Pausa'}
           </span>
         </div>
         <button onClick={onClose} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 4, color: 'var(--muted)', borderRadius: 4, lineHeight: 1, display:'flex',alignItems:'center' }}>
@@ -875,7 +939,7 @@ const PomoWidget = ({ timeStr, isActive, isFocus, pct, toggle, reset, onClose })
       </div>
     </div>
   , document.body);
-};
+});
 
 const PomodoroTimer = ({ pomoData, setPomoData }) => {
   const FOCUS_SECS = 25 * 60;
@@ -930,7 +994,7 @@ const PomodoroTimer = ({ pomoData, setPomoData }) => {
           setMode('break');
           setTimeLeft(BREAK_SECS);
         } else {
-          fireNotification('Pomodoro', 'Pausa encerrada! Pronto para focar? 🧠');
+          fireNotification('Pomodoro', 'Pausa encerrada! Pronto para focar? ');
           setMode('focus');
           setTimeLeft(FOCUS_SECS);
           setIsActive(false);
@@ -961,7 +1025,7 @@ const PomodoroTimer = ({ pomoData, setPomoData }) => {
   const todaySecs = ((pomoData.days || {})[pomoTodayKey()]) || 0;
   const todayDisplay = todaySecs + unsavedSecsRef.current;
 
-  // ── Stats data ──
+  // - Stats data -
   const dayEntries = useMemo(() => {
     const entries = Object.entries(pomoData.days || {});
     const filtered = entries.filter(e => e[0] !== '_total' && e[0].length === 10 && e[1] > 0);
@@ -987,7 +1051,7 @@ const PomodoroTimer = ({ pomoData, setPomoData }) => {
   const totalAll = dayEntries.reduce((sum, e) => sum + e[1], 0);
 
   return (
-    <div style={{marginBottom:20}}>
+    <div style={{marginBottom:0}}>
       {showWidget && (
         <PomoWidget
           timeStr={timeStr} isActive={isActive} isFocus={isFocus} pct={pct}
@@ -995,7 +1059,7 @@ const PomodoroTimer = ({ pomoData, setPomoData }) => {
           onClose={() => setShowWidget(false)}
         />
       )}
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:7}}>
         <span className="label">Pomodoro</span>
         <div style={{display:'flex',alignItems:'center',gap:8}}>
           <div style={{display:'inline-flex',alignItems:'center',gap:6,padding:'3px 10px',borderRadius:20,background:isFocus?'rgba(28,25,23,.06)':'#E8F5EC',color:isFocus?'var(--muted)':'#276b3e',fontSize:'.7rem',fontWeight:700,textTransform:'uppercase',letterSpacing:'.07em'}}>
@@ -1023,32 +1087,34 @@ const PomodoroTimer = ({ pomoData, setPomoData }) => {
 
       {/* Timer card */}
       {!showStats && (
-        <div className="card" style={{padding:'20px 24px',display:'flex',flexDirection:'column',alignItems:'center',gap:14}}>
-          <div style={{position:'relative',width:110,height:110}}>
-            <svg width="110" height="110" style={{position:'absolute',top:0,left:0,transform:'rotate(-90deg)'}}>
-              <circle cx="55" cy="55" r={r} fill="none" stroke="var(--border)" strokeWidth="5"/>
-              <circle cx="55" cy="55" r={r} fill="none" stroke={isFocus?'var(--text)':'#276b3e'} strokeWidth="5" strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round" style={{transition:'stroke-dashoffset 1s linear,stroke .4s'}}/>
+        <div className="card" style={{padding:'12px 16px',display:'flex',alignItems:'center',gap:14}}>
+          <div style={{position:'relative',width:76,height:76,flexShrink:0}}>
+            <svg width="76" height="76" style={{position:'absolute',top:0,left:0,transform:'rotate(-90deg)'}}>
+              <circle cx="38" cy="38" r={34} fill="none" stroke="var(--border)" strokeWidth="4"/>
+              <circle cx="38" cy="38" r={34} fill="none" stroke={isFocus?'var(--text)':'#276b3e'} strokeWidth="4" strokeDasharray={2*Math.PI*34} strokeDashoffset={2*Math.PI*34*(1-pct)} strokeLinecap="round" style={{transition:'stroke-dashoffset 1s linear,stroke .4s'}}/>
             </svg>
             <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
-              <span style={{fontFamily:'Cormorant Garamond,serif',fontSize:'1.75rem',fontWeight:500,letterSpacing:'-0.02em'}}>{timeStr}</span>
+              <span style={{fontFamily:'Cormorant Garamond,serif',fontSize:'1.25rem',fontWeight:500,letterSpacing:'-0.02em'}}>{timeStr}</span>
             </div>
           </div>
-          <div style={{display:'flex',gap:8,alignItems:'center'}}>
-            <button className="btn btn-outline" onClick={toggle} style={{minWidth:100,justifyContent:'center',padding:'7px 16px'}}>
-              <Icon name={isActive?'pause':'play'} size={15}/>
-              {isActive ? 'Pausar' : (isFocus ? 'Iniciar' : 'Retomar')}
-            </button>
-            <button className="btn btn-ghost" onClick={reset} title="Reiniciar" style={{padding:8}}>
-              <Icon name="rotate-ccw" size={15}/>
-            </button>
-          </div>
-          <div style={{fontSize:'.72rem',color:'var(--muted)',display:'flex',alignItems:'center',gap:5}}>
-            <Icon name="clock" size={11}/> Hoje: <strong style={{color:'var(--text)'}}>{pomoFmtSecs(todayDisplay)}</strong> em foco
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{display:'flex',gap:6,alignItems:'center',marginBottom:5}}>
+              <button className="btn btn-outline" onClick={toggle} style={{flex:1,justifyContent:'center',padding:'5px 10px',fontSize:'.78rem'}}>
+                <Icon name={isActive?'pause':'play'} size={12}/>
+                {isActive ? 'Pausar' : (isFocus ? 'Iniciar' : 'Retomar')}
+              </button>
+              <button className="btn btn-ghost" onClick={reset} title="Reiniciar" style={{padding:5}}>
+                <Icon name="rotate-ccw" size={13}/>
+              </button>
+            </div>
+            <div style={{fontSize:'.67rem',color:'var(--muted)',display:'flex',alignItems:'center',gap:4}}>
+              <Icon name="clock" size={10}/> Hoje: <strong style={{color:'var(--text)'}}>{pomoFmtSecs(todayDisplay)}</strong> em foco
+            </div>
           </div>
         </div>
       )}
 
-      {/* Stats panel — replaces timer card inline */}
+      {/* Stats panel - replaces timer card inline */}
       {showStats && (
         <div className="overlay" onClick={e=>e.target===e.currentTarget&&setShowStats(false)}>
           <div style={{background:'var(--surface)',borderRadius:18,border:'1px solid var(--border)',width:'100%',maxWidth:440,maxHeight:'80vh',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(28,25,23,.15)',overflow:'hidden'}}>
@@ -1125,8 +1191,8 @@ const PomodoroTimer = ({ pomoData, setPomoData }) => {
   );
 };
 
-// ─── DASHBOARD ────────────────────────────────────────────────────────────────
-const Dashboard=({projects,notes,mentors,tasks,setTasks,setView,setNotes,pomoData,setPomoData,isMobile})=>{
+// - DASHBOARD -
+const Dashboard=React.memo(({projects,notes,mentors,tasks,setTasks,setView,setNotes,pomoData,setPomoData,isMobile})=>{
   const active=useMemo(()=>projects.filter(p=>!p.deleted&&p.status==='Em Andamento'),[projects]);
   const recentNotes=useMemo(()=>notes.filter(n=>!n.deleted).slice(0,3),[notes]);
   const allPTasks=useMemo(()=>active.flatMap(p=>(p.projectTasks||[]).filter(t=>t.status!=='Concluído').map(t=>({...t,projectTitle:p.title}))),[active]);
@@ -1144,43 +1210,47 @@ const Dashboard=({projects,notes,mentors,tasks,setTasks,setView,setNotes,pomoDat
   const removeTask=id=>setTasks(p=>p.filter(t=>t.id!==id));
   const taskToNote=task=>{const n={id:Date.now(),title:task.text,content:'',date:'Agora',deleted:false};setNotes(p=>[n,...p]);setTasks(p=>p.map(t=>t.id===task.id?{...t,noteId:n.id}:t));};
 
+  const isSmall = !isMobile && typeof window !== 'undefined' && window.innerHeight < 800;
   return(
-    <div className="fade-up" style={{maxWidth:960,margin:'0 auto',width:'100%',boxSizing:'border-box'}}>
-      <div style={{marginBottom:isMobile?24:40}}>
-        <h1 className="serif" style={{fontSize:isMobile?'2.2rem':'3rem',fontWeight:300,letterSpacing:'-0.02em',marginBottom:6,lineHeight:1.1}}>{greeting}, <em>Artista.</em></h1>
-        <p style={{color:'var(--muted)',fontSize:'.9rem'}}>{new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</p>
+    <div className="fade-up" style={{maxWidth:960,margin:'0 auto',width:'100%',boxSizing:'border-box',height:isMobile?'auto':'calc(100vh - 48px)',display:'flex',flexDirection:'column',overflow:isMobile?'auto':'hidden',gap:0}}>
+      {/* Header */}
+      <div style={{marginBottom:isMobile?10:isSmall?8:12,flexShrink:0}}>
+        <h1 className="serif" style={{fontSize:isMobile?'1.9rem':isSmall?'2rem':'2.6rem',fontWeight:300,letterSpacing:'-0.02em',marginBottom:2,lineHeight:1.1}}>{greeting}, <em>Artista.</em></h1>
+        <p style={{color:'var(--muted)',fontSize:isSmall?'.76rem':'.82rem'}}>{new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</p>
       </div>
-      <div style={isMobile?{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:20}:{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,marginBottom:32}}>
+      {/* Stats row */}
+      <div style={isMobile?{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:10,flexShrink:0}:{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:isSmall?8:10,marginBottom:isSmall?8:12,flexShrink:0}}>
         {stats.map(s=>(
-          <div key={s.label} className="card card-click" onClick={()=>setView(s.view)} style={isMobile?{padding:'12px 8px',display:'flex',flexDirection:'column',gap:6,alignItems:'center',textAlign:'center',minWidth:0,overflow:'hidden'}:{padding:'24px 28px',display:'flex',flexDirection:'column',gap:12}}>
-            <span style={{fontSize:isMobile?'1.6rem':'2.2rem',fontWeight:600,fontFamily:'Cormorant Garamond,serif',lineHeight:1}}>{s.value}</span>
-            {!isMobile&&<div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-              <div style={{width:32,height:32,borderRadius:8,backgroundColor:'var(--bg)',display:'flex',alignItems:'center',justifyContent:'center'}}><Icon name={s.icon} size={15}/></div>
-            </div>}
-            <span style={{fontSize:isMobile?'.65rem':'.8rem',color:'var(--muted)',fontWeight:500,lineHeight:1.2,overflow:'hidden',textOverflow:'ellipsis',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{s.label}</span>
+          <div key={s.label} className="card card-click" onClick={()=>setView(s.view)} style={isMobile?{padding:'8px',display:'flex',flexDirection:'column',gap:3,alignItems:'center',textAlign:'center',minWidth:0,overflow:'hidden'}:{padding:isSmall?'8px 12px':'10px 14px',display:'flex',alignItems:'center',gap:10}}>
+            {!isMobile&&<div style={{width:24,height:24,borderRadius:6,backgroundColor:'var(--bg)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><Icon name={s.icon} size={12}/></div>}
+            <div style={{flex:1,minWidth:0}}>
+              <span style={{fontSize:isMobile?'1.3rem':isSmall?'1.3rem':'1.5rem',fontWeight:600,fontFamily:'Cormorant Garamond,serif',lineHeight:1,display:'block'}}>{s.value}</span>
+              <span style={{fontSize:isMobile?'.6rem':'.7rem',color:'var(--muted)',fontWeight:500,lineHeight:1.2,overflow:'hidden',textOverflow:'ellipsis',display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical'}}>{s.label}</span>
+            </div>
           </div>
         ))}
       </div>
-      <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:20}}>
+      {/* Main grid - fills remaining height */}
+      <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 1fr',gap:isSmall?10:14,flex:1,minHeight:0,overflow:isMobile?'visible':'hidden'}}>
         {/* LEFT: projects + project tasks */}
-        <div style={{display:'flex',flexDirection:'column',gap:20,minWidth:0}}>
+        <div style={{display:'flex',flexDirection:'column',gap:isSmall?7:10,minWidth:0,overflow:isMobile?'visible':'auto',paddingRight:isMobile?0:2}}>
           {/* Projetos ativos */}
-          <div>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <div style={{flexShrink:0}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:isSmall?5:7}}>
               <span className="label">Em andamento</span>
-              <button className="btn btn-outline" style={{padding:'5px 10px',fontSize:'.75rem'}} onClick={()=>setView('projects')}>Ver todos <Icon name="arrow-right" size={12}/></button>
+              <button className="btn btn-outline" style={{padding:'3px 7px',fontSize:'.7rem'}} onClick={()=>setView('projects')}>Ver todos <Icon name="arrow-right" size={10}/></button>
             </div>
-            {active.length===0&&<div className="card" style={{padding:20,textAlign:'center',color:'var(--muted)',fontSize:'.82rem'}}>Nenhum projeto ativo.</div>}
-            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+            {active.length===0&&<div className="card" style={{padding:12,textAlign:'center',color:'var(--muted)',fontSize:'.78rem'}}>Nenhum projeto ativo.</div>}
+            <div style={{display:'flex',flexDirection:'column',gap:isSmall?4:6}}>
               {active.map(p=>(
-                <div key={p.id} className="card card-click" onClick={()=>setView('projects')} style={{padding:'14px 16px',display:'flex',alignItems:'center',gap:12}}>
-                  <BgImg src={p.cover} style={{width:36,height:36,borderRadius:7,flexShrink:0,backgroundSize:'cover',backgroundPosition:'center',backgroundColor:'var(--bg)'}}/>
+                <div key={p.id} className="card card-click" onClick={()=>setView('projects')} style={{padding:isSmall?'7px 10px':'9px 12px',display:'flex',alignItems:'center',gap:9}}>
+                  <BgImg src={p.cover} style={{width:26,height:26,borderRadius:5,flexShrink:0,backgroundSize:'cover',backgroundPosition:'center',backgroundColor:'var(--bg)'}}/>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontWeight:600,fontSize:'.85rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.title}</div>
-                    <div style={{fontSize:'.72rem',color:'var(--muted)'}}>{p.client}</div>
+                    <div style={{fontWeight:600,fontSize:'.8rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.title}</div>
+                    <div style={{fontSize:'.66rem',color:'var(--muted)'}}>{p.client}</div>
                   </div>
                   {(p.projectTasks||[]).length>0&&(
-                    <span style={{fontSize:'.7rem',color:'var(--muted)',flexShrink:0}}>
+                    <span style={{fontSize:'.63rem',color:'var(--muted)',flexShrink:0}}>
                       {(p.projectTasks||[]).filter(t=>t.status==='Fazendo').length} fazendo
                     </span>
                   )}
@@ -1188,24 +1258,24 @@ const Dashboard=({projects,notes,mentors,tasks,setTasks,setView,setNotes,pomoDat
               ))}
             </div>
           </div>
-          {/* Tarefas de projetos — agrupadas por projeto */}
+          {/* Tarefas de projetos - agrupadas por projeto */}
           {active.some(p=>(p.projectTasks||[]).some(t=>t.status!=='Concluído'))&&(
-            <div>
-              <div style={{marginBottom:12}}><span className="label">Tarefas Abertas dos Projetos</span></div>
-              <div style={{display:'flex',flexDirection:'column',gap:10}}>
+            <div style={{flex:1,minHeight:0,display:'flex',flexDirection:'column'}}>
+              <div style={{marginBottom:isSmall?5:7,flexShrink:0}}><span className="label">Tarefas Abertas dos Projetos</span></div>
+              <div style={{display:'flex',flexDirection:'column',gap:isSmall?5:7,overflow:'auto',flex:1}}>
                 {active.filter(p=>(p.projectTasks||[]).some(t=>t.status!=='Concluído')).map(p=>{
                   const openTasks=(p.projectTasks||[]).filter(t=>t.status!=='Concluído');
                   return(
-                    <div key={p.id} className="card" style={{padding:'10px 14px'}}>
-                      <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8,paddingBottom:6,borderBottom:'1px solid var(--border)'}}>
-                        <BgImg src={p.cover} style={{width:22,height:22,borderRadius:5,flexShrink:0,backgroundSize:'cover',backgroundPosition:'center',backgroundColor:'var(--bg)'}}/>
-                        <span style={{fontWeight:600,fontSize:'.78rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{p.title}</span>
-                        <span style={{fontSize:'.65rem',color:'var(--muted)',flexShrink:0}}>{openTasks.length} tarefa{openTasks.length!==1?'s':''}</span>
+                    <div key={p.id} className="card" style={{padding:isSmall?'6px 10px':'8px 12px',flexShrink:0}}>
+                      <div style={{display:'flex',alignItems:'center',gap:7,marginBottom:isSmall?4:5,paddingBottom:isSmall?3:4,borderBottom:'1px solid var(--border)'}}>
+                        <BgImg src={p.cover} style={{width:16,height:16,borderRadius:3,flexShrink:0,backgroundSize:'cover',backgroundPosition:'center',backgroundColor:'var(--bg)'}}/>
+                        <span style={{fontWeight:600,fontSize:'.72rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}}>{p.title}</span>
+                        <span style={{fontSize:'.6rem',color:'var(--muted)',flexShrink:0}}>{openTasks.length} tarefa{openTasks.length!==1?'s':''}</span>
                       </div>
                       {openTasks.map(t=>(
-                        <div key={t.id} style={{display:'flex',alignItems:'center',gap:8,padding:'4px 0'}}>
-                          <span className={`ptask-pill ptask-${t.status}`} style={{cursor:'default',flexShrink:0,fontSize:'.58rem'}}>{t.status}</span>
-                          <span style={{flex:1,fontSize:'.8rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text)'}}>{t.text}</span>
+                        <div key={t.id} style={{display:'flex',alignItems:'center',gap:6,padding:'2px 0'}}>
+                          <span className={`ptask-pill ptask-${t.status}`} style={{cursor:'default',flexShrink:0,fontSize:'.52rem'}}>{t.status}</span>
+                          <span style={{flex:1,fontSize:'.73rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',color:'var(--text)'}}>{t.text}</span>
                         </div>
                       ))}
                     </div>
@@ -1216,47 +1286,49 @@ const Dashboard=({projects,notes,mentors,tasks,setTasks,setView,setNotes,pomoDat
           )}
         </div>
 
-        {/* RIGHT: activities + recent notes */}
-        <div style={{display:'flex',flexDirection:'column',gap:20,minWidth:0}}>
-          <PomodoroTimer pomoData={pomoData} setPomoData={setPomoData} />
+        {/* RIGHT: pomodoro + activities + recent notes */}
+        <div style={{display:'flex',flexDirection:'column',gap:isSmall?7:10,minWidth:0,overflow:isMobile?'visible':'auto',paddingRight:isMobile?0:2}}>
+          <div style={{flexShrink:0}}><PomodoroTimer pomoData={pomoData} setPomoData={setPomoData} /></div>
           {/* Atividades gerais */}
-          <div>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <div style={{flex:1,minHeight:0,display:'flex',flexDirection:'column'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:isSmall?5:7,flexShrink:0}}>
               <span className="label">Lista de Atividades</span>
-              <button className="btn btn-outline" style={{padding:'5px 10px',fontSize:'.75rem'}} onClick={()=>setView('ideas')}>Ver Ideias <Icon name="arrow-right" size={12}/></button>
+              <button className="btn btn-outline" style={{padding:'3px 7px',fontSize:'.7rem'}} onClick={()=>setView('ideas')}>Ver Ideias <Icon name="arrow-right" size={10}/></button>
             </div>
-            <div className="card" style={{padding:'16px 20px'}}>
-              <div style={{display:'flex',gap:8,marginBottom:tasks.length>0?12:0}}>
+            <div className="card" style={{padding:'10px 14px',flex:1,minHeight:0,display:'flex',flexDirection:'column'}}>
+              <div style={{display:'flex',gap:7,marginBottom:tasks.length>0?8:0,flexShrink:0}}>
                 <input value={newTask} onChange={e=>setNewTask(e.target.value)} onKeyDown={e=>e.key==='Enter'&&addTask()}
-                  placeholder="Nova atividade..." style={{flex:1,background:'transparent',border:'none',outline:'none',borderBottom:'1px solid var(--border)',fontFamily:'Figtree,sans-serif',fontSize:'.85rem',color:'var(--text)',paddingBottom:4}}/>
-                <button onClick={addTask} className="btn btn-dark" style={{padding:'4px 10px',fontSize:'.78rem'}}><Icon name="plus" size={13}/></button>
+                  placeholder="Nova atividade..." style={{flex:1,background:'transparent',border:'none',outline:'none',borderBottom:'1px solid var(--border)',fontFamily:'Figtree,sans-serif',fontSize:'.8rem',color:'var(--text)',paddingBottom:3}}/>
+                <button onClick={addTask} className="btn btn-dark" style={{padding:'3px 8px',fontSize:'.73rem'}}><Icon name="plus" size={12}/></button>
               </div>
-              {tasks.length===0&&<p style={{fontSize:'.82rem',color:'var(--muted)',margin:'8px 0 0',textAlign:'center'}}>Nenhuma atividade.</p>}
-              {tasks.map(t=>(
-                <div key={t.id} className="task-row">
-                  <div className={`task-check ${t.done?'done':''}`} onClick={()=>toggleTask(t.id)}/>
-                  <span style={{flex:1,fontSize:'.85rem',textDecoration:t.done?'line-through':'none',color:t.done?'var(--muted)':'var(--text)',lineHeight:1.4}}>{t.text}</span>
-                  <div style={{display:'flex',gap:4,flexShrink:0}}>
-                    {!t.noteId&&<button onClick={()=>taskToNote(t)} title="Salvar como nota" className="btn btn-ghost" style={{padding:3}}><Icon name="file-plus" size={13}/></button>}
-                    {t.noteId&&<span style={{color:'var(--muted)',padding:'0 4px'}}><Icon name="file-check" size={13}/></span>}
-                    <button onClick={()=>removeTask(t.id)} className="btn btn-ghost" style={{padding:3}}><Icon name="x" size={13}/></button>
+              {tasks.length===0&&<p style={{fontSize:'.78rem',color:'var(--muted)',margin:'5px 0 0',textAlign:'center'}}>Nenhuma atividade.</p>}
+              <div style={{overflow:'auto',flex:1}}>
+                {tasks.map(t=>(
+                  <div key={t.id} className="task-row" style={{paddingTop:isSmall?4:6,paddingBottom:isSmall?4:6}}>
+                    <div className={`task-check ${t.done?'done':''}`} onClick={()=>toggleTask(t.id)}/>
+                    <span style={{flex:1,fontSize:'.8rem',textDecoration:t.done?'line-through':'none',color:t.done?'var(--muted)':'var(--text)',lineHeight:1.35}}>{t.text}</span>
+                    <div style={{display:'flex',gap:3,flexShrink:0}}>
+                      {!t.noteId&&<button onClick={()=>taskToNote(t)} title="Salvar como nota" className="btn btn-ghost" style={{padding:3}}><Icon name="file-plus" size={12}/></button>}
+                      {t.noteId&&<span style={{color:'var(--muted)',padding:'0 3px'}}><Icon name="file-check" size={12}/></span>}
+                      <button onClick={()=>removeTask(t.id)} className="btn btn-ghost" style={{padding:3}}><Icon name="x" size={12}/></button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
           {/* Notas recentes */}
-          <div>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <div style={{flexShrink:0}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:isSmall?5:7}}>
               <span className="label">Notas Recentes</span>
-              <button className="btn btn-outline" style={{padding:'5px 10px',fontSize:'.75rem'}} onClick={()=>setView('ideas')}>Ver todas <Icon name="arrow-right" size={12}/></button>
+              <button className="btn btn-outline" style={{padding:'3px 7px',fontSize:'.7rem'}} onClick={()=>setView('ideas')}>Ver todas <Icon name="arrow-right" size={10}/></button>
             </div>
-            {recentNotes.length===0&&<div className="card" style={{padding:16,textAlign:'center',color:'var(--muted)',fontSize:'.8rem'}}>Nenhuma nota.</div>}
-            <div style={{display:'flex',flexDirection:'column',gap:6}}>
+            {recentNotes.length===0&&<div className="card" style={{padding:10,textAlign:'center',color:'var(--muted)',fontSize:'.76rem'}}>Nenhuma nota.</div>}
+            <div style={{display:'flex',flexDirection:'column',gap:isSmall?4:5}}>
               {recentNotes.map(n=>(
-                <div key={n.id} className="card card-click" onClick={()=>setView('ideas')} style={{padding:'10px 14px'}}>
-                  <div style={{fontWeight:600,fontSize:'.82rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{n.title}</div>
-                  <div style={{fontSize:'.72rem',color:'var(--muted)',marginTop:2,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{n.content}</div>
+                <div key={n.id} className="card card-click" onClick={()=>setView('ideas')} style={{padding:isSmall?'6px 10px':'7px 12px'}}>
+                  <div style={{fontWeight:600,fontSize:'.78rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{n.title}</div>
+                  <div style={{fontSize:'.66rem',color:'var(--muted)',marginTop:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{n.content}</div>
                 </div>
               ))}
             </div>
@@ -1264,11 +1336,34 @@ const Dashboard=({projects,notes,mentors,tasks,setTasks,setView,setNotes,pomoDat
         </div>
       </div>
 
+      {/* - Mentores Principais - */}
+      {!isMobile&&mentors.filter(m=>!m.deleted&&m.main).length>0&&(
+        <div style={{marginTop:isSmall?8:12,flexShrink:0}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:isSmall?6:8}}>
+            <span className="label" style={{display:'flex',alignItems:'center',gap:5}}><Icon name="graduation-cap" size={11}/> Mentores Principais</span>
+            <button className="btn btn-outline" style={{padding:'3px 7px',fontSize:'.7rem'}} onClick={()=>setView('mentors')}>Ver todos <Icon name="arrow-right" size={10}/></button>
+          </div>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:isSmall?7:10}}>
+            {mentors.filter(m=>!m.deleted&&m.main).slice(0,3).map(m=>(
+              <div key={m.id} className="card" style={{padding:isSmall?'7px 10px':'9px 12px',display:'flex',alignItems:'center',gap:9}}>
+                <div style={{width:28,height:28,borderRadius:'50%',flexShrink:0,overflow:'hidden',background:'var(--bg)',border:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'Cormorant Garamond,serif',fontSize:'.85rem',fontWeight:500,color:'var(--muted)'}}>
+                  {m.photo?<Img src={m.photo} style={{width:'100%',height:'100%',objectFit:'cover'}}/>:m.name.charAt(0)}
+                </div>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontWeight:600,fontSize:'.78rem',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.name}</div>
+                  <div style={{fontSize:'.65rem',color:'var(--muted)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.area}{m.medium?' — '+m.medium:''}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
     </div>
   );
-};
+});
 
-// ─── NEW PROJECT MODAL ────────────────────────────────────────────────────────
+// - NEW PROJECT MODAL -
 const NewProjectModal=({onSave,onClose,isMobile})=>{
   const [form,setForm]=useState({title:'',client:'',type:'work',status:'Em Andamento',startDate:'',deadline:'',notes:'',cover:'',mentors:[],researchImages:[],researchNotes:[],projectTasks:[],timelineEvents:[],deleted:false});
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
@@ -1304,8 +1399,8 @@ const NewProjectModal=({onSave,onClose,isMobile})=>{
   );
 };
 
-// ─── PROJECTS LIST ────────────────────────────────────────────────────────────
-const ProjectsList=({projects,setProjects,onSelect,onAdd,isMobile})=>{
+// - PROJECTS LIST -
+const ProjectsList=React.memo(({projects,setProjects,onSelect,onAdd,isMobile})=>{
   const [filterType,setFilterType]=useState('all');
   const [onlyActive,setOnlyActive]=useState(false);
   const [trash,setTrash]=useState(false);
@@ -1321,12 +1416,12 @@ const ProjectsList=({projects,setProjects,onSelect,onAdd,isMobile})=>{
   const statusBg={'Fazendo':'#FEF9E7','Atrasado':'#FDEDED','Pendente':'#F0EDE9'};
 
   return(
-    <div className="fade-up" style={{maxWidth:1200,margin:'0 auto'}}>
-      <div style={{display:'flex',gap:28,alignItems:'flex-start',flexDirection:isMobile?'column':'row'}}>
+    <div className="fade-up" style={{maxWidth:'100%',boxSizing:'border-box',height:isMobile?'auto':'calc(100vh - clamp(32px,5vh,80px))',overflowY:isMobile?'visible':'auto'}}>
+      <div style={{display:'flex',gap:28,alignItems:'flex-start',flexDirection:isMobile?'column':'row',flex:1}}>
         {/* LEFT: projects list */}
         <div style={{flex:1,minWidth:0,width:isMobile?'100%':undefined}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:isMobile?'center':'flex-end',marginBottom:isMobile?16:24,gap:12,flexWrap:'wrap'}}>
-            <h1 className="serif" style={{fontSize:isMobile?'1.75rem':'2.6rem',fontWeight:300,letterSpacing:'-0.02em'}}>Projetos</h1>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:isMobile?'center':'flex-end',marginBottom:isMobile?12:16,gap:10,flexWrap:'wrap'}}>
+            <h1 className="serif" style={{fontSize:isMobile?'1.75rem':'clamp(1.6rem,2.8vh,2.6rem)',fontWeight:300,letterSpacing:'-0.02em'}}>Projetos</h1>
             <div style={{display:'flex',gap:8}}>
               <button onClick={()=>setTrash(!trash)} className={`btn ${trash?'btn-danger':'btn-outline'}`}>
                 <Icon name="trash-2" size={13}/>
@@ -1338,7 +1433,7 @@ const ProjectsList=({projects,setProjects,onSelect,onAdd,isMobile})=>{
           {isMobile&&!trash&&<button className="fab" onClick={onAdd}><Icon name="plus" size={24}/></button>}
           {trash&&<TrashBanner label="Projetos" onExit={()=>setTrash(false)}/>}
           {!trash&&(
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:10,padding:'6px 16px 6px 6px',marginBottom:isMobile?16:24,flexWrap:isMobile?'wrap':'nowrap',gap:isMobile?8:0}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',background:'var(--surface)',border:'1px solid var(--border)',borderRadius:10,padding:'6px 16px 6px 6px',marginBottom:isMobile?12:16,flexWrap:isMobile?'wrap':'nowrap',gap:isMobile?8:0}}>
               <div style={{display:'flex',gap:4}}>
                 {[['all','Todos'],['work','Trabalho'],['personal','Pessoal']].map(([v,l])=>(
                   <button key={v} onClick={()=>setFilterType(v)} style={{padding:'7px 16px',borderRadius:7,border:'none',cursor:'pointer',fontFamily:'Figtree,sans-serif',fontSize:'.82rem',fontWeight:500,background:filterType===v?'var(--text)':'transparent',color:filterType===v?'white':'var(--muted)',transition:'all .15s'}}>{l}</button>
@@ -1374,15 +1469,13 @@ const ProjectsList=({projects,setProjects,onSelect,onAdd,isMobile})=>{
             </div>
           ):(
             /* Desktop: card grid (and trash on both) */
-            <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'repeat(3,1fr)',gap:isMobile?12:16}}>
+            <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'repeat(auto-fill,minmax(260px,1fr))',gap:isMobile?12:16}}>
             {visible.map(p=>(
               <div key={p.id} className="card" style={{overflow:'hidden',display:'flex',flexDirection:'column',cursor:trash?'default':'pointer',opacity:trash?.85:1,position:'relative'}}
                 onClick={()=>!trash&&onSelect(p)}>
                 {!trash&&(
                   <button onClick={e=>{e.stopPropagation();softDelete(p.id);}} title="Mover para lixeira"
-                    style={{position:'absolute',top:8,left:8,background:'rgba(28,25,23,.55)',backdropFilter:'blur(4px)',border:'none',borderRadius:6,padding:'4px 6px',cursor:'pointer',color:'white',opacity:0,transition:'opacity .2s',zIndex:2}}
-                    onMouseEnter={e=>{e.currentTarget.style.opacity=1;}}
-                    onMouseLeave={e=>{e.currentTarget.style.opacity=0;}}>
+                    className="card-delete-btn">
                     <Icon name="trash-2" size={12}/>
                   </button>
                 )}
@@ -1416,7 +1509,7 @@ const ProjectsList=({projects,setProjects,onSelect,onAdd,isMobile})=>{
           )}
         </div>
 
-        {/* RIGHT: tasks sidebar hub — hidden on mobile */}
+        {/* RIGHT: tasks sidebar hub - hidden on mobile */}
         {!trash&&!isMobile&&(
           <div style={{width:280,flexShrink:0,position:'sticky',top:48}}>
             <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:16}}>
@@ -1462,9 +1555,9 @@ const ProjectsList=({projects,setProjects,onSelect,onAdd,isMobile})=>{
       </div>
     </div>
   );
-};
+});
 
-// ─── ADD MENTOR INLINE ────────────────────────────────────────────────────────
+// - ADD MENTOR INLINE -
 const AddMentorInline=({onAdd})=>{
   const [open,setOpen]=useState(false);
   const [name,setName]=useState('');
@@ -1493,7 +1586,7 @@ const AddMentorInline=({onAdd})=>{
   );
 };
 
-// ─── GANTT TIMELINE ───────────────────────────────────────────────────────────
+// - GANTT TIMELINE -
 const PTASK_STATUSES=['Pendente','Fazendo','Concluído','Atrasado'];
 const PTASK_NEXT={'Pendente':'Fazendo','Fazendo':'Concluído','Concluído':'Atrasado','Atrasado':'Pendente'};
 
@@ -1517,7 +1610,7 @@ const GanttTimeline=({tasks,onUpdateTasks,projectStart,projectEnd})=>{
   const dragRef=useRef(null);
   const [, forceUpdate]=useState(0);
 
-  // ── Compute chart bounds ──────────────────────────────────────────────────
+  // - Compute chart bounds -
   let chartStart=projectStart||today;
   let chartEnd=projectEnd||addDays(today,45);
   tasks.forEach(t=>{
@@ -1532,7 +1625,7 @@ const GanttTimeline=({tasks,onUpdateTasks,projectStart,projectEnd})=>{
   const HEADER_H=52;
   const LEFT_W=220;
 
-  // ── Month + week header data ──────────────────────────────────────────────
+  // - Month + week header data -
   const months=[];
   let cur=new Date(chartStart+'T12:00:00');
   const endDt=new Date(chartEnd+'T12:00:00');
@@ -1555,7 +1648,7 @@ const GanttTimeline=({tasks,onUpdateTasks,projectStart,projectEnd})=>{
   const todayOffset=daysBetween(chartStart,today)*DAY_W;
   const gridW=totalDays*DAY_W;
 
-  // ── Bar geometry ───────────────────────────────────────────────────────────
+  // - Bar geometry -
   const barGeom=t=>{
     const s=t.startDate||(projectStart||today);
     const e=t.dueDate||(projectEnd||addDays(today,7));
@@ -1564,7 +1657,7 @@ const GanttTimeline=({tasks,onUpdateTasks,projectStart,projectEnd})=>{
     return{left,width};
   };
 
-  // ── Drag ──────────────────────────────────────────────────────────────────
+  // - Drag -
   const startDrag=(e,taskId,type)=>{
     e.preventDefault();e.stopPropagation();
     const t=tasks.find(x=>x.id===taskId);if(!t)return;
@@ -1587,7 +1680,7 @@ const GanttTimeline=({tasks,onUpdateTasks,projectStart,projectEnd})=>{
     window.addEventListener('mouseup',onUp);
   };
 
-  // ── Edit ──────────────────────────────────────────────────────────────────
+  // - Edit -
   const selectTask=t=>{setSelectedId(t.id);setEditDraft({...t,startDate:t.startDate||(projectStart||today),dueDate:t.dueDate||(projectEnd||addDays(today,7)),notes:t.notes||''});};
   const saveEdit=()=>{if(!editDraft)return;onUpdateTasks(tasks.map(t=>t.id===editDraft.id?{...editDraft}:t));setSelectedId(null);setEditDraft(null);};
   const deleteTask=()=>{if(!editDraft)return;onUpdateTasks(tasks.filter(t=>t.id!==editDraft.id));setSelectedId(null);setEditDraft(null);};
@@ -1683,7 +1776,7 @@ const GanttTimeline=({tasks,onUpdateTasks,projectStart,projectEnd})=>{
                   <div
                     onMouseDown={e=>startDrag(e,t.id,'move')}
                     onClick={e=>{e.stopPropagation();isSelected?(setSelectedId(null),setEditDraft(null)):selectTask(t);}}
-                    title={`${t.text}\n${fmtShort(t.startDate)} → ${fmtShort(t.dueDate)}`}
+                    title={`${t.text}\n${fmtShort(t.startDate)} \u2192 ${fmtShort(t.dueDate)}`}
                     style={{
                       position:'absolute',left,width,height:28,top:(ROW_H-28)/2,
                       background:colors.bar,border:`1.5px solid ${isSelected?'var(--text)':colors.border}`,borderRadius:7,
@@ -1752,7 +1845,7 @@ const GanttTimeline=({tasks,onUpdateTasks,projectStart,projectEnd})=>{
   );
 };
 
-// ─── PROJECT DETAIL ───────────────────────────────────────────────────────────
+// - PROJECT DETAIL -
 
 // Auto-mark tasks as Atrasado if past their dueDate and not Concluído
 const applyAutoLate=tasks=>{
@@ -1766,27 +1859,29 @@ const applyAutoLate=tasks=>{
   });
 };
 
-const ProjectDetail=({project,onBack,onUpdate,onSoftDelete,globalMentors,onAddGlobalMentor,isMobile})=>{
-  const [local,setLocal]=useState(()=>({...project,projectTasks:applyAutoLate(project.projectTasks)}));
+const ProjectDetail=React.memo(({project,onBack,onUpdate,onSoftDelete,globalMentors,onAddGlobalMentor,isMobile})=>{
+  const [local,setLocal]=useState(()=>{
+    const tasks=applyAutoLate(project.projectTasks);
+    return{...project,projectTasks:tasks};
+  });
   const [tab,setTab]=useState('Visão Geral');
   const coverRef=useRef();
 
+  const projectRef=useRef(project);
   useEffect(()=>{
-    const updated={...project,projectTasks:applyAutoLate(project.projectTasks)};
-    setLocal(updated);
-  },[project.id]);
+    // Only update local if the project changed externally (not from our own upd())
+    if(projectRef.current!==project){
+      const updated={...project,projectTasks:applyAutoLate(project.projectTasks)};
+      setLocal(updated);
+      projectRef.current=project;
+    }
+  },[project]);
 
   // Safe update using functional setState to avoid stale closures
   const upd=(field,value)=>{
     setLocal(prev=>{
       const updated={...prev,[field]:value};
-      onUpdate(updated);
-      return updated;
-    });
-  };
-  const updMany=patch=>{
-    setLocal(prev=>{
-      const updated={...prev,...patch};
+      projectRef.current=updated;
       onUpdate(updated);
       return updated;
     });
@@ -1856,12 +1951,12 @@ const ProjectDetail=({project,onBack,onUpdate,onSoftDelete,globalMentors,onAddGl
   const MINI_STATUSES=['Em Andamento','Revisão','Aprovado','Arquivado'];
 
   return(
-    <div className="fade-up" style={{maxWidth:900,margin:'0 auto',paddingBottom:60}}>
+    <div className="fade-up" style={{maxWidth:'100%',boxSizing:'border-box',height:isMobile?'auto':'calc(100vh - clamp(32px,5vh,80px))',overflowY:isMobile?'visible':'auto',display:'flex',flexDirection:'column'}}>
       <input ref={coverRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleCoverUpload}/>
       <input ref={miniImgRef} type="file" accept="image/*" multiple style={{display:'none'}} onChange={handleMiniImgs}/>
 
       {/* Cover */}
-      <div className="cover-wrap" style={{height:isMobile?140:260,borderRadius:isMobile?12:16,overflow:'hidden',marginBottom:isMobile?20:28}}>
+      <div className="cover-wrap" style={{height:isMobile?140:'clamp(160px,20vh,260px)',borderRadius:isMobile?12:16,overflow:'hidden',marginBottom:isMobile?16:'clamp(12px,2vh,28px)'}}>
         <BgImg src={local.cover} style={{position:'absolute',inset:0,backgroundSize:'cover',backgroundPosition:'center',backgroundColor:'#E8E3DC'}}/>
         <div style={{position:'absolute',inset:0,background:'linear-gradient(to top,rgba(0,0,0,.85) 0%,rgba(0,0,0,.2) 60%,transparent 100%)'}}/>
         <div className="cover-edit-overlay" onClick={()=>coverRef.current.click()}>
@@ -1888,7 +1983,7 @@ const ProjectDetail=({project,onBack,onUpdate,onSoftDelete,globalMentors,onAddGl
         </div>
       </div>
 
-      {/* Timeline — vertical on mobile, Gantt on desktop */}
+      {/* Timeline - vertical on mobile, Gantt on desktop */}
       {isMobile?(
         <div style={{marginBottom:16}}>
           {(local.timelineEvents||[]).length>0?(
@@ -1942,7 +2037,7 @@ const ProjectDetail=({project,onBack,onUpdate,onSoftDelete,globalMentors,onAddGl
       {tab==='Visão Geral'&&(
         <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 220px',gap:20}}>
           <div style={{display:'flex',flexDirection:'column',gap:16}}>
-            <div className="card" style={{padding:32}}>
+            <div className="card" style={{padding:'clamp(16px,2.5vh,32px)'}}>
               <span className="label" style={{display:'block',marginBottom:14}}>Notas & Direção de Arte</span>
               <textarea style={{background:'transparent',outline:'none',resize:'none',fontFamily:'Figtree,sans-serif',fontSize:'.9rem',lineHeight:1.8,color:'var(--text)',height:200,border:'none',width:'100%'}}
                 value={local.notes} onChange={e=>upd('notes',e.target.value)} placeholder="Notas de direção, referências, intenções narrativas..."/>
@@ -2123,7 +2218,7 @@ const ProjectDetail=({project,onBack,onUpdate,onSoftDelete,globalMentors,onAddGl
                   placeholder="Notas, intenções, referências para este animatic..."
                   style={{resize:'none',background:'transparent',border:'none',outline:'none',fontSize:'.9rem',fontFamily:'Figtree,sans-serif',lineHeight:1.8,color:'var(--text)',minHeight:80,marginBottom:16}}/>
                 {(activeMini.frames||[]).length>0&&(
-                  <div style={{display:'grid',gridTemplateColumns:isMobile?'repeat(2,1fr)':'repeat(3,1fr)',gap:isMobile?8:10,marginBottom:14}}>
+                  <div style={{display:'grid',gridTemplateColumns:isMobile?'repeat(2,1fr)':'repeat(auto-fill,minmax(160px,1fr))',gap:isMobile?8:10,marginBottom:14}}>
                     {(activeMini.frames||[]).map((img,i)=>(
                       <div key={i} style={{position:'relative',borderRadius:8,overflow:'hidden',aspectRatio:'16/9',background:'var(--bg)'}}>
                         <Img src={img} style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}}/>
@@ -2162,7 +2257,7 @@ const ProjectDetail=({project,onBack,onUpdate,onSoftDelete,globalMentors,onAddGl
                     placeholder="Notas, análises, referências..."
                     style={{resize:'none',background:'transparent',border:'none',outline:'none',fontSize:'.9rem',fontFamily:'Figtree,sans-serif',lineHeight:1.8,color:'var(--text)',minHeight:120,marginBottom:16}}/>
                   {(note.images||[]).length>0&&(
-                    <div style={{display:'grid',gridTemplateColumns:isMobile?'repeat(2,1fr)':'repeat(3,1fr)',gap:isMobile?8:10,marginBottom:14}}>
+                    <div style={{display:'grid',gridTemplateColumns:isMobile?'repeat(2,1fr)':'repeat(auto-fill,minmax(160px,1fr))',gap:isMobile?8:10,marginBottom:14}}>
                       {(note.images||[]).map((img,i)=>(
                         <div key={i} style={{position:'relative',borderRadius:8,overflow:'hidden',aspectRatio:'16/9',background:'var(--bg)'}}>
                           <Img src={img} style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}}/>
@@ -2241,9 +2336,9 @@ const ProjectDetail=({project,onBack,onUpdate,onSoftDelete,globalMentors,onAddGl
                 <textarea value={activeResearch.content} onChange={e=>updateResearch('content',e.target.value)}
                   placeholder="Notas, análises, referências..."
                   style={{resize:'none',background:'transparent',border:'none',outline:'none',fontSize:'.9rem',fontFamily:'Figtree,sans-serif',lineHeight:1.8,color:'var(--text)',minHeight:120,marginBottom:16}}/>
-                {/* Images — 3 column grid */}
+                {/* Images - 3 column grid */}
                 {(activeResearch.images||[]).length>0&&(
-                  <div style={{display:'grid',gridTemplateColumns:isMobile?'repeat(2,1fr)':'repeat(3,1fr)',gap:isMobile?8:10,marginBottom:14}}>
+                  <div style={{display:'grid',gridTemplateColumns:isMobile?'repeat(2,1fr)':'repeat(auto-fill,minmax(160px,1fr))',gap:isMobile?8:10,marginBottom:14}}>
                     {(activeResearch.images||[]).map((img,i)=>(
                       <div key={i} style={{position:'relative',borderRadius:8,overflow:'hidden',aspectRatio:'16/9',background:'var(--bg)'}}>
                         <Img src={img} style={{width:'100%',height:'100%',objectFit:'cover',display:'block'}}/>
@@ -2268,10 +2363,10 @@ const ProjectDetail=({project,onBack,onUpdate,onSoftDelete,globalMentors,onAddGl
       )}
     </div>
   );
-};
+});
 
-// ─── GALLERY ─────────────────────────────────────────────────────────────────
-const Gallery=({posts,setPosts,isMobile})=>{
+// - GALLERY -
+const Gallery=React.memo(({posts,setPosts,isMobile})=>{
   const FOLDERS=[
     {id:'work',        label:'Work'},
     {id:'movie-studies',label:'Movie Studies'},
@@ -2284,8 +2379,8 @@ const Gallery=({posts,setPosts,isMobile})=>{
   const [trash,setTrash]=useState(false);
   const [uploading,setUploading]=useState(false);
   const addImgRef=useRef();
-  const active=posts.filter(p=>trash?p.deleted:(!p.deleted&&p.folder===activeFolder));
-  const grouped=active.reduce((acc,p)=>{const key=new Date(p.date).toLocaleString('pt-BR',{month:'long',year:'numeric'});if(!acc[key])acc[key]=[];acc[key].push(p);return acc;},{});
+  const active=useMemo(()=>posts.filter(p=>trash?p.deleted:(!p.deleted&&p.folder===activeFolder)),[posts,trash,activeFolder]);
+  const grouped=useMemo(()=>active.reduce((acc,p)=>{const key=new Date(p.date).toLocaleString('pt-BR',{month:'long',year:'numeric'});if(!acc[key])acc[key]=[];acc[key].push(p);return acc;},{}),[active]);
   const upd=(field,value)=>{
     const updated={...selected,[field]:value};
     setSelected(updated);
@@ -2308,6 +2403,14 @@ const Gallery=({posts,setPosts,isMobile})=>{
   const restore=id=>setPosts(p=>p.map(x=>x.id===id?{...x,deleted:false}:x));
   const hardDelete=id=>{if(window.confirm('Excluir permanentemente?')){setPosts(p=>p.filter(x=>x.id!==id));}};
 
+  // Keyboard escape for lightbox
+  useEffect(()=>{
+    if(!lightbox)return;
+    const handleKeyDown=e=>{if(e.key==='Escape')setLightbox(null);};
+    document.addEventListener('keydown',handleKeyDown);
+    return()=>document.removeEventListener('keydown',handleKeyDown);
+  },[lightbox]);
+
   if(lightbox)return(
     <div className="lightbox" onClick={()=>setLightbox(null)}>
       <Img src={lightbox} onClick={e=>e.stopPropagation()} alt="" style={{maxWidth:'90vw',maxHeight:'90vh',objectFit:'contain',borderRadius:8}}/>
@@ -2316,13 +2419,13 @@ const Gallery=({posts,setPosts,isMobile})=>{
   );
 
   if(selected)return(
-    <div className="fade-up" style={{maxWidth:960,margin:'0 auto'}}>
+    <div className="fade-up" style={{maxWidth:'100%',boxSizing:'border-box',height:isMobile?'auto':'calc(100vh - clamp(32px,5vh,80px))',overflowY:isMobile?'visible':'auto'}}>
       <input ref={addImgRef} type="file" accept="image/*" multiple style={{display:'none'}} onChange={handleAddImages}/>
       <div style={{display:'flex',justifyContent:'space-between',marginBottom:24}}>
         <button className="btn btn-outline" onClick={()=>setSelected(null)}><Icon name="arrow-left" size={13}/> Voltar</button>
         <button className="btn btn-danger" onClick={()=>{softDelete(selected.id);setSelected(null);}}><Icon name="trash-2" size={13}/> Mover para Lixeira</button>
       </div>
-      <div className="card" style={{padding:32}}>
+      <div className="card" style={{padding:'clamp(16px,2.5vh,32px)'}}>
         <input value={selected.title} onChange={e=>upd('title',e.target.value)}
           style={{fontSize:'2rem',fontWeight:400,background:'transparent',outline:'none',border:'none',borderBottom:'1px solid var(--border)',width:'100%',marginBottom:16,paddingBottom:8,color:'var(--text)',fontFamily:'Cormorant Garamond,serif'}}/>
         {/* Folder selector */}
@@ -2339,7 +2442,7 @@ const Gallery=({posts,setPosts,isMobile})=>{
         </div>
         <textarea value={selected.content} onChange={e=>upd('content',e.target.value)} placeholder="Análise, insights, observações..."
           style={{width:'100%',border:'1px solid var(--border)',borderRadius:10,padding:'16px 20px',fontSize:'.92rem',outline:'none',resize:'vertical',minHeight:160,fontFamily:'Figtree,sans-serif',lineHeight:1.8,color:'var(--text)',backgroundColor:'var(--bg)',marginBottom:24}}/>
-        <div style={{display:'grid',gridTemplateColumns:isMobile?'repeat(2,1fr)':'repeat(3,1fr)',gap:isMobile?10:14}}>
+        <div style={{display:'grid',gridTemplateColumns:isMobile?'repeat(2,1fr)':'repeat(auto-fill,minmax(220px,1fr))',gap:isMobile?10:14}}>
           {selected.images.map((img,i)=>(
             <div key={i} style={{position:'relative',borderRadius:10,overflow:'hidden',aspectRatio:'16/9',background:'var(--bg)',cursor:'zoom-in'}} onClick={()=>setLightbox(img)}>
               <Img src={img} style={{width:'100%',height:'100%',objectFit:'cover',display:'block',transition:'transform .3s'}} onMouseEnter={e=>e.target.style.transform='scale(1.03)'} onMouseLeave={e=>e.target.style.transform='scale(1)'}/>
@@ -2347,12 +2450,12 @@ const Gallery=({posts,setPosts,isMobile})=>{
             </div>
           ))}
           <div className="upload-zone" style={{aspectRatio:'16/9',minHeight:0,opacity:uploading?.6:1,pointerEvents:uploading?'none':'auto'}} onClick={()=>addImgRef.current.click()}>
-            <Icon name={uploading?'loader':'plus'} size={20} style={{marginBottom:6}}/><span style={{fontSize:'.75rem'}}>{uploadProgress?`${uploadProgress.done}/${uploadProgress.total} enviando…`:uploading?'Enviando…':'Adicionar'}</span>
+            <Icon name={uploading?'loader':'plus'} size={20} style={{marginBottom:6}}/><span style={{fontSize:'.75rem'}}>{uploadProgress?`${uploadProgress.done}/${uploadProgress.total} enviando...`:uploading?'Enviando...':'Adicionar'}</span>
           </div>
           {uploadProgress&&uploadProgress.total>1&&(
             <div style={{marginTop:8}}>
               <div style={{display:'flex',justifyContent:'space-between',fontSize:'.72rem',color:'var(--muted)',marginBottom:4}}>
-                <span>Enviando para nuvem…</span>
+                <span>Enviando para nuvem...</span>
                 <span>{Math.round(uploadProgress.done/uploadProgress.total*100)}%</span>
               </div>
               <div style={{height:4,background:'var(--border)',borderRadius:2}}>
@@ -2366,10 +2469,10 @@ const Gallery=({posts,setPosts,isMobile})=>{
   );
 
   return(
-    <div className="fade-up" style={{maxWidth:900,margin:'0 auto'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:isMobile?'center':'flex-end',marginBottom:isMobile?16:24,gap:12,flexWrap:'wrap'}}>
-        <div><h1 className="serif" style={{fontSize:isMobile?'1.75rem':'2.6rem',fontWeight:300,letterSpacing:'-0.02em',marginBottom:4}}>Galeria</h1>
-          {!isMobile&&<p style={{color:'var(--muted)',fontSize:'.85rem'}}>Acervo visual & estudos</p>}</div>
+    <div className="fade-up" style={{maxWidth:'100%',boxSizing:'border-box',height:isMobile?'auto':'calc(100vh - clamp(32px,5vh,80px))',display:'flex',flexDirection:'column',overflowY:isMobile?'visible':'auto'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:isMobile?'center':'flex-end',marginBottom:isMobile?10:14,gap:10,flexWrap:'wrap',flexShrink:0}}>
+        <div><h1 className="serif" style={{fontSize:isMobile?'1.75rem':'clamp(1.6rem,2.8vh,2.6rem)',fontWeight:300,letterSpacing:'-0.02em',marginBottom:2}}>Galeria</h1>
+          {!isMobile&&<p style={{color:'var(--muted)',fontSize:'clamp(.75rem,1.1vh,.85rem)'}}>Acervo visual & estudos</p>}</div>
         <div style={{display:'flex',gap:8}}>
           <button onClick={()=>{setTrash(!trash);setSelected(null);}} className={`btn ${trash?'btn-danger':'btn-outline'}`}>
             <Icon name="trash-2" size={13}/>{trash?'Sair':'Lixeira'}{!trash&&posts.filter(p=>p.deleted).length>0&&` (${posts.filter(p=>p.deleted).length})`}
@@ -2379,18 +2482,18 @@ const Gallery=({posts,setPosts,isMobile})=>{
       </div>
       {trash&&<TrashBanner label="Galeria" onExit={()=>setTrash(false)}/>}
       {!trash&&(
-        <div style={isMobile?{display:'flex',background:'var(--bg)',borderRadius:10,padding:3,gap:2,marginBottom:16}:{display:'flex',borderBottom:'1px solid var(--border)',marginBottom:24}}>
+        <div style={isMobile?{display:'flex',background:'var(--bg)',borderRadius:10,padding:3,gap:2,marginBottom:16}:{display:'flex',borderBottom:'1px solid var(--border)',marginBottom:'clamp(10px,1.5vh,18px)',flexShrink:0}}>
           {FOLDERS.map(f=><button key={f.id} onClick={()=>setActiveFolder(f.id)} className="tab-btn" style={{color:activeFolder===f.id?'var(--text)':'var(--muted)',borderBottom:activeFolder===f.id?'2px solid var(--text)':'2px solid transparent',whiteSpace:'nowrap'}}>{f.label}</button>)}
         </div>
       )}
       {Object.keys(grouped).length===0&&<div style={{textAlign:'center',padding:isMobile?40:60,color:'var(--muted)',fontSize:'.9rem'}}><Icon name="image" size={28} style={{display:'block',margin:'0 auto 12px',opacity:.3}}/>{trash?'Lixeira vazia.':'Pasta vazia.'}</div>}
       {Object.entries(grouped).map(([month,monthPosts])=>(
-        <div key={month} style={{marginBottom:isMobile?24:36}}>
+        <div key={month} style={{marginBottom:isMobile?16:'clamp(16px,3vh,36px)'}}>
           <div style={{borderBottom:'1px solid var(--border)',paddingBottom:8,marginBottom:16}}><span className="label">{month}</span></div>
-          <div style={{display:'grid',gridTemplateColumns:isMobile?'repeat(2,1fr)':'repeat(auto-fill,minmax(180px,1fr))',gap:isMobile?10:14}}>
+          <div style={{display:'grid',gridTemplateColumns:isMobile?'repeat(2,1fr)':'repeat(auto-fill,minmax(280px,1fr))',gap:isMobile?10:14}}>
             {monthPosts.map(post=>(
               <div key={post.id} className="card" style={{overflow:'hidden',cursor:trash?'default':'pointer'}} onClick={()=>!trash&&setSelected(post)}>
-                <div style={{aspectRatio:'4/5',overflow:'hidden',backgroundColor:'var(--bg)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <div style={{aspectRatio:'16/9',overflow:'hidden',backgroundColor:'var(--bg)',display:'flex',alignItems:'center',justifyContent:'center'}}>
                   {post.images.length>0
                     ?<Img src={post.images[0]} style={{width:'100%',height:'100%',objectFit:'cover',display:'block',transition:'transform .4s'}} onMouseEnter={e=>!trash&&(e.target.style.transform='scale(1.06)')} onMouseLeave={e=>e.target.style.transform='scale(1)'}/>
                     :<Icon name="image" size={28} style={{opacity:.2}}/>}
@@ -2412,31 +2515,63 @@ const Gallery=({posts,setPosts,isMobile})=>{
       ))}
     </div>
   );
-};
+});
 
-// ─── IDEAS ────────────────────────────────────────────────────────────────────
-const IdeasLab=({notes,setNotes,tasks,setTasks,isMobile})=>{
+// - IDEAS -
+const IdeasLab=React.memo(({notes,setNotes,tasks,setTasks,isMobile})=>{
   const [folder,setFolder]=useState('notes');
   const [activeId,setActiveId]=useState(()=>notes.find(n=>!n.deleted)?.id||null);
   const [newTask,setNewTask]=useState('');
+  // Local draft state — avoids flushing to global on every keystroke (fixes mobile cursor reset)
+  const [localTitle,setLocalTitle]=useState('');
+  const [localContent,setLocalContent]=useState('');
+  const flushTitleRef=useRef(null);
+  const flushContentRef=useRef(null);
   const visible=useMemo(()=>notes.filter(n=>folder==='notes'?!n.deleted:n.deleted),[notes,folder]);
-  // Guard: only treat a note as active if it actually lives in the current folder
   const active=useMemo(()=>notes.find(n=>n.id===activeId&&(folder==='notes'?!n.deleted:n.deleted))||null,[notes,activeId,folder]);
-  const newNote=()=>{const n={id:Date.now(),title:"Nova Nota",content:"",date:"Agora",deleted:false};setNotes(p=>[n,...p]);setActiveId(n.id);};
+
+  // Sync local drafts when switching notes OR when external data changes for the active note
+  const activeTitle=active?.title;
+  const activeContent=active?.content;
+  useEffect(()=>{
+    if(active){setLocalTitle(active.title);setLocalContent(active.content||'');}
+  },[activeId,activeTitle,activeContent]);
+
+  const flushToGlobal=(field,value)=>{
+    setNotes(p=>p.map(n=>n.id===activeId?{...n,[field]:value}:n));
+  };
+
+  const handleTitleChange=e=>{
+    const v=e.target.value;setLocalTitle(v);
+    clearTimeout(flushTitleRef.current);
+    flushTitleRef.current=setTimeout(()=>flushToGlobal('title',v),1500);
+  };
+  const handleContentChange=e=>{
+    const v=e.target.value;setLocalContent(v);
+    clearTimeout(flushContentRef.current);
+    flushContentRef.current=setTimeout(()=>flushToGlobal('content',v),1500);
+  };
+  // Flush immediately on blur
+  const handleBlur=(field,value)=>{
+    clearTimeout(field==='title'?flushTitleRef.current:flushContentRef.current);
+    flushToGlobal(field,value);
+  };
+
   const update=(field,value)=>setNotes(p=>p.map(n=>n.id===activeId?{...n,[field]:value}:n));
   const toggleTrash=id=>{setNotes(p=>p.map(n=>n.id===id?{...n,deleted:!n.deleted}:n));const next=notes.find(n=>n.id!==id&&(folder==='notes'?!n.deleted:n.deleted));setActiveId(next?.id||null);};
   const hardDelete=id=>{if(window.confirm('Excluir nota permanentemente?')){setNotes(p=>p.filter(n=>n.id!==id));const next=notes.find(n=>n.id!==id&&(folder==='notes'?!n.deleted:n.deleted));setActiveId(next?.id||null);}};
+  const newNote=()=>{const n={id:Date.now(),title:"Nova Nota",content:"",date:"Agora",deleted:false};setNotes(p=>[n,...p]);setActiveId(n.id);};
   const noteToTask=()=>{if(!active)return;setTasks(p=>[...p,{id:Date.now(),text:active.title,done:false,noteId:active.id}]);};
   const isAlreadyTask=active&&tasks.some(t=>t.noteId===active.id);
   const addTask=()=>{if(!newTask.trim())return;setTasks(p=>[...p,{id:Date.now(),text:newTask.trim(),done:false,noteId:null}]);setNewTask('');};
   const toggleTask=id=>setTasks(p=>p.map(t=>t.id===id?{...t,done:!t.done}:t));
   const removeTask=id=>setTasks(p=>p.filter(t=>t.id!==id));
   return(
-    <div className="fade-up" style={{maxWidth:1100,margin:'0 auto',height:isMobile?'auto':'calc(100vh - 80px)',display:'flex',gap:isMobile?0:20,flexDirection:isMobile?'column':'row'}}>
+    <div className="fade-up" style={{maxWidth:'100%',margin:'0 auto',boxSizing:'border-box',height:isMobile?'auto':'calc(100vh - clamp(32px,5vh,80px))',display:'flex',gap:isMobile?0:20,flexDirection:isMobile?'column':'row'}}>
       {/* Left */}
       {(!isMobile||(isMobile&&!activeId))&&(
       <div style={{width:isMobile?'100%':200,flexShrink:0,display:'flex',flexDirection:'column',gap:14}}>
-        <h1 className="serif" style={{fontSize:isMobile?'1.6rem':'2rem',fontWeight:300}}>Ideias</h1>
+        <h1 className="serif" style={{fontSize:isMobile?'1.6rem':'clamp(1.4rem,2.2vh,2rem)',fontWeight:300}}>Ideias</h1>
         <div style={{display:'flex',flexDirection:isMobile?'row':'column',gap:4}}>
           {[['notes','Notas'],['trash','Lixeira']].map(([v,l])=>(
             <button key={v} onClick={()=>{setFolder(v);const first=notes.find(n=>v==='notes'?!n.deleted:n.deleted);setActiveId(first?.id||null);}} style={{textAlign:'left',padding:'8px 12px',borderRadius:7,border:'none',fontFamily:'Figtree,sans-serif',fontSize:'.83rem',fontWeight:500,cursor:'pointer',background:folder===v?(v==='trash'?'#FEE2E2':'var(--text)'):'transparent',color:folder===v?(v==='trash'?'#991B1B':'white'):'var(--muted)',transition:'all .15s'}}>
@@ -2470,7 +2605,7 @@ const IdeasLab=({notes,setNotes,tasks,setTasks,isMobile})=>{
         {active?(
           <>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:16,borderBottom:'1px solid var(--border)',paddingBottom:12}}>
-              <input value={active.title} onChange={e=>update('title',e.target.value)} disabled={folder==='trash'}
+              <input value={localTitle} onChange={handleTitleChange} onBlur={()=>handleBlur('title',localTitle)} disabled={folder==='trash'}
                 style={{fontFamily:'Cormorant Garamond,serif',fontSize:'1.8rem',fontWeight:400,background:'transparent',border:'none',outline:'none',color:'var(--text)',flex:1,minWidth:0}}/>
               <div style={{display:'flex',gap:4,flexShrink:0}}>
                 {folder==='notes'&&<button onClick={noteToTask} disabled={isAlreadyTask} title={isAlreadyTask?"Já na lista":"Adicionar à lista"} className="btn btn-ghost" style={{padding:6,opacity:isAlreadyTask?.4:1}}><Icon name="check-square" size={16}/></button>}
@@ -2481,7 +2616,7 @@ const IdeasLab=({notes,setNotes,tasks,setTasks,isMobile})=>{
                 {folder==='trash'&&<button onClick={()=>hardDelete(active.id)} className="btn btn-ghost text-link-danger" style={{padding:6}} title="Excluir permanentemente"><Icon name="trash" size={17}/></button>}
               </div>
             </div>
-            <textarea value={active.content} onChange={e=>update('content',e.target.value)} disabled={folder==='trash'} placeholder="Comece a escrever..."
+            <textarea value={localContent} onChange={handleContentChange} onBlur={()=>handleBlur('content',localContent)} disabled={folder==='trash'} placeholder="Comece a escrever..."
               style={{flex:1,resize:'none',background:'transparent',border:'none',outline:'none',fontSize:'.95rem',fontFamily:'Figtree,sans-serif',lineHeight:1.9,color:'var(--text)',opacity:folder==='trash'?.5:1}}/>
           </>
         ):(
@@ -2492,7 +2627,7 @@ const IdeasLab=({notes,setNotes,tasks,setTasks,isMobile})=>{
         )}
       </div>
       )}
-      {/* Right tasks — below on mobile, sidebar on desktop */}
+      {/* Right tasks - below on mobile, sidebar on desktop */}
       {(!isMobile||!activeId)&&(
       <div style={{width:isMobile?'100%':260,flexShrink:0,marginTop:isMobile?16:0}}>
         <div className="card" style={{height:isMobile?'auto':'100%',padding:20,display:'flex',flexDirection:'column'}}>
@@ -2520,12 +2655,12 @@ const IdeasLab=({notes,setNotes,tasks,setTasks,isMobile})=>{
       )}
     </div>
   );
-};
+});
 
-// ─── SOCIAL ───────────────────────────────────────────────────────────────────
+// - SOCIAL -
 const SOCIAL_PLATFORMS=['Instagram','LinkedIn','Twitter/X','TikTok','YouTube','Behance'];
 
-const Social=({posts,setPosts,isMobile})=>{
+const Social=React.memo(({posts,setPosts,isMobile})=>{
   const [text,setText]=useState('');
   const [platform,setPlatform]=useState('Instagram');
   const [editId,setEditId]=useState(null);
@@ -2568,7 +2703,7 @@ const Social=({posts,setPosts,isMobile})=>{
   const platformColor=pl=>({Instagram:'#833AB4',LinkedIn:'#0A66C2','Twitter/X':'#000000',TikTok:'#010101',YouTube:'#FF0000',Behance:'#053EFF'}[pl]||'var(--text)');
 
   return(
-    <div className="fade-up" style={{maxWidth:900,margin:'0 auto',width:'100%',boxSizing:'border-box'}}>
+    <div className="fade-up" style={{maxWidth:'100%',boxSizing:'border-box',height:isMobile?'auto':'calc(100vh - clamp(32px,5vh,80px))',overflowY:isMobile?'visible':'auto'}}>
       {/* Template edit modal */}
       {editingTpl&&(
         <div className="overlay" onClick={e=>e.target===e.currentTarget&&setEditingTpl(null)}>
@@ -2593,15 +2728,15 @@ const Social=({posts,setPosts,isMobile})=>{
         </div>
       )}
 
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:isMobile?'center':'flex-end',marginBottom:isMobile?16:24,gap:12,flexWrap:'wrap'}}>
-        <h1 className="serif" style={{fontSize:isMobile?'1.75rem':'2.6rem',fontWeight:300,letterSpacing:'-0.02em'}}>Social Media</h1>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:isMobile?'center':'flex-end',marginBottom:isMobile?10:14,gap:10,flexWrap:'wrap'}}>
+        <h1 className="serif" style={{fontSize:isMobile?'1.75rem':'clamp(1.6rem,2.8vh,2.6rem)',fontWeight:300,letterSpacing:'-0.02em'}}>Social Media</h1>
         <button onClick={()=>{setTrash(!trash);cancelEdit();}} className={`btn ${trash?'btn-danger':'btn-outline'}`}>
           <Icon name="trash-2" size={13}/>{trash?'Sair':'Lixeira'}{!trash&&trashedPosts.length>0&&` (${trashedPosts.length})`}
         </button>
       </div>
       {trash&&<TrashBanner label="Social Media" onExit={()=>setTrash(false)}/>}
       {!trash&&(
-        <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 260px',gap:isMobile?16:20,marginBottom:isMobile?24:32}}>
+        <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'1fr 260px',gap:isMobile?16:20,marginBottom:isMobile?16:20}}>
           {/* Composer */}
           <div className="card" style={{padding:24,display:'flex',flexDirection:'column'}}>
             {editId&&<div style={{fontSize:'.75rem',color:'#92700b',marginBottom:8,display:'flex',alignItems:'center',gap:6}}>
@@ -2669,7 +2804,7 @@ const Social=({posts,setPosts,isMobile})=>{
                 <div style={{flex:1,minWidth:0}}>
                   <p style={{margin:0,fontSize:'.88rem',lineHeight:1.7,color:'var(--text)',whiteSpace:'pre-wrap',wordBreak:'break-word'}}>{p.text}</p>
                   <div style={{marginTop:10,display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
-                    {/* Platform badge — clickable when not in trash */}
+                    {/* Platform badge - clickable when not in trash */}
                     {!trash?(
                       isMobile?(
                         <select value={p.platform||'Instagram'} onChange={e=>changePostPlatform(p.id,e.target.value)}
@@ -2709,19 +2844,19 @@ const Social=({posts,setPosts,isMobile})=>{
       {trash&&trashedPosts.length===0&&<div style={{textAlign:'center',padding:40,color:'var(--muted)',fontSize:'.85rem'}}>Lixeira vazia.</div>}
     </div>
   );
-};
+});
 
-// ─── CLIENT DETAIL ────────────────────────────────────────────────────────────
+// - CLIENT DETAIL -
 const ClientDetail=({client,onBack,onSave,onDelete})=>{
   const [form,setForm]=useState(client);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const photoRef=useRef();
   const handlePhoto=async e=>{const file=e.target.files[0];if(!file)return;set('photo',await uploadImage(file));};
   return(
-    <div className="fade-up" style={{maxWidth:680,margin:'0 auto',paddingBottom:60}}>
+    <div className="fade-up" style={{maxWidth:'min(680px,100%)',boxSizing:'border-box',height:isMobile?'auto':'calc(100vh - clamp(32px,5vh,80px))',overflowY:isMobile?'visible':'auto'}}>
       <input ref={photoRef} type="file" accept="image/*" style={{display:'none'}} onChange={handlePhoto}/>
       <button className="btn btn-outline" onClick={onBack} style={{marginBottom:28}}><Icon name="arrow-left" size={13}/> Voltar</button>
-      <div className="card" style={{padding:32,marginBottom:20}}>
+      <div className="card" style={{padding:'clamp(16px,2.5vh,32px)',marginBottom:'clamp(10px,1.5vh,20px)'}}>
         <div style={{display:'flex',alignItems:'flex-start',gap:20,marginBottom:24}}>
           <div onClick={()=>photoRef.current.click()} style={{width:72,height:72,borderRadius:'50%',cursor:'pointer',flexShrink:0,overflow:'hidden',border:'2px dashed var(--border)',display:'flex',alignItems:'center',justifyContent:'center',backgroundColor:'var(--bg)',position:'relative'}}
             onMouseEnter={e=>e.currentTarget.querySelector('.ch').style.opacity=1} onMouseLeave={e=>e.currentTarget.querySelector('.ch').style.opacity=0}>
@@ -2751,8 +2886,8 @@ const ClientDetail=({client,onBack,onSave,onDelete})=>{
   );
 };
 
-// ─── CLIENTS ──────────────────────────────────────────────────────────────────
-const Clients=({clients,setClients,isMobile})=>{
+// - CLIENTS -
+const Clients=React.memo(({clients,setClients,isMobile})=>{
   const [selected,setSelected]=useState(null);
   const [trash,setTrash]=useState(false);
   const tagColor=s=>({'Ativo':'tag-green','Lead':'tag-yellow','Inativo':'tag-gray','Arquivado':'tag-gray'}[s]||'tag-gray');
@@ -2764,9 +2899,9 @@ const Clients=({clients,setClients,isMobile})=>{
   const visible=clients.filter(c=>trash?c.deleted:!c.deleted);
   if(selected&&!trash)return <ClientDetail client={selected} onBack={()=>setSelected(null)} onSave={save} onDelete={softDelete}/>;
   return(
-    <div className="fade-up" style={{maxWidth:900,margin:'0 auto'}}>
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:isMobile?'center':'flex-end',marginBottom:isMobile?16:24,gap:12,flexWrap:'wrap'}}>
-        <h1 className="serif" style={{fontSize:isMobile?'1.75rem':'2.6rem',fontWeight:300,letterSpacing:'-0.02em'}}>Clientes</h1>
+    <div className="fade-up" style={{maxWidth:'100%',boxSizing:'border-box',height:isMobile?'auto':'calc(100vh - clamp(32px,5vh,80px))',overflowY:isMobile?'visible':'auto'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:isMobile?'center':'flex-end',marginBottom:isMobile?10:14,gap:10,flexWrap:'wrap'}}>
+        <h1 className="serif" style={{fontSize:isMobile?'1.75rem':'clamp(1.6rem,2.8vh,2.6rem)',fontWeight:300,letterSpacing:'-0.02em'}}>Clientes</h1>
         <div style={{display:'flex',gap:8}}>
           <button onClick={()=>setTrash(!trash)} className={`btn ${trash?'btn-danger':'btn-outline'}`}>
             <Icon name="trash-2" size={13}/>{trash?'Sair':'Lixeira'}{!trash&&clients.filter(c=>c.deleted).length>0&&` (${clients.filter(c=>c.deleted).length})`}
@@ -2822,14 +2957,10 @@ const Clients=({clients,setClients,isMobile})=>{
       )}
     </div>
   );
-};
+});
 
-// ─── SYNC HUB (Firebase) ─────────────────────────────────────────────────────
-const SyncHub=({appState,onImport,onClearSave,fbUser,syncStatus,isMobile})=>{
-  const [cfgInput,setCfgInput]=useState(()=>{
-    const cfg=loadFbCfg();
-    return cfg.apiKey?JSON.stringify(cfg,null,2):'';
-  });
+// - SYNC HUB -
+const SyncHub=React.memo(({appState,onImport,onClearSave,fbUser,syncStatus,isMobile})=>{
   const [status,setStatus]=useState(null);
   const [loading,setLoading]=useState(false);
   const [reuploadProgress,setReuploadProgress]=useState(null);
@@ -2837,23 +2968,11 @@ const SyncHub=({appState,onImport,onClearSave,fbUser,syncStatus,isMobile})=>{
 
   const showStatus=(type,msg)=>{setStatus({type,msg});if(type!=='err')setTimeout(()=>setStatus(null),8000);};
   const localImgCount=collectIdbKeys(appState).size;
-  const configured=!!loadFbCfg().apiKey;
-
-  const saveFirebaseConfig=()=>{
-    try{
-      const cfg=JSON.parse(cfgInput);
-      if(!cfg.apiKey||!cfg.projectId)throw new Error('Campos obrigatórios ausentes: apiKey, projectId');
-      saveFbCfg(cfg);
-      _fbReady=false;
-      const ok=initFirebase();
-      if(ok)showStatus('ok','✓ Firebase configurado! Clique em "Entrar com Google" para ativar o sync.');
-      else showStatus('err','Firebase não inicializou. Verifique o JSON.');
-    }catch(e){showStatus('err','JSON inválido: '+e.message);}
-  };
 
   const signIn=async()=>{
-    if(!initFirebase()){showStatus('err','Configure o Firebase primeiro.');return;}
     try{
+      await initFirebase();
+      if(!_fbReady){showStatus('err','Firebase não carregou. Tente de novo em instantes.');return;}
       const provider=new firebase.auth.GoogleAuthProvider();
       await _fbAuth.signInWithPopup(provider);
       showStatus('ok','✓ Conectado! Dados sincronizarão em tempo real entre todos os dispositivos.');
@@ -2871,7 +2990,7 @@ const SyncHub=({appState,onImport,onClearSave,fbUser,syncStatus,isMobile})=>{
     setLoading(true);
     try{
       await pushState(appState,fbUser.uid);
-      showStatus('ok','✓ Dados enviados ao Firebase!');
+      showStatus('ok','✓ Dados enviados!');
     }catch(e){showStatus('err','Falha: '+e.message);}
     finally{setLoading(false);}
   };
@@ -2879,14 +2998,14 @@ const SyncHub=({appState,onImport,onClearSave,fbUser,syncStatus,isMobile})=>{
   const handleReupload=async()=>{
     const keys=[...collectIdbKeys(appState)];
     if(keys.length===0){showStatus('ok','✓ Nenhuma imagem local — tudo já está na nuvem!');return;}
-    if(!fbUser&&!window.confirm(`${keys.length} imagem(ns) local(is). Sem Firebase ativo, serão enviadas ao Imgur (limite de taxa). Continuar?`))return;
+    if(!fbUser&&!window.confirm(`${keys.length} imagem(ns) local(is). Sem login ativo, serão enviadas ao Imgur. Continuar?`))return;
     setLoading(true);
     setReuploadProgress({done:0,total:keys.length});
     try{
       const updatedState=await reuploadLocalImages(appState,(done,total)=>setReuploadProgress({done,total}));
       onImport(updatedState);
       setReuploadProgress(null);
-      showStatus('ok','✓ Imagens enviadas para Firebase Storage!');
+      showStatus('ok','✓ Imagens enviadas para a nuvem!');
     }catch(e){setReuploadProgress(null);showStatus('err','Falha: '+e.message);}
     finally{setLoading(false);}
   };
@@ -2917,16 +3036,15 @@ const SyncHub=({appState,onImport,onClearSave,fbUser,syncStatus,isMobile})=>{
   ];
 
   const syncColor={'synced':'#276b3e','syncing':'#92700b','error':'#9B1C1C','idle':'var(--muted)'}[syncStatus]||'var(--muted)';
-  const syncLabel={'synced':'Sincronizado em tempo real ✓','syncing':'Sincronizando…','error':'Erro de sincronização','idle':fbUser?'Aguardando alterações':'Faça login para sincronizar'}[syncStatus]||'';
+  const syncLabel={'synced':'Sincronizado ✓','syncing':'Sincronizando...','error':'Erro de sincronização','idle':fbUser?'Aguardando alterações':'Faça login para sincronizar'}[syncStatus]||'';
   const syncIcon={'synced':'check-circle','syncing':'loader','error':'alert-circle','idle':'cloud'}[syncStatus]||'cloud';
 
   return(
-    <div className="fade-up" style={{maxWidth:680,margin:'0 auto'}}>
-      <h1 className="serif" style={{fontSize:isMobile?'1.75rem':'2.6rem',fontWeight:300,letterSpacing:'-0.02em',marginBottom:4}}>Sincronizar</h1>
-      <p style={{color:'var(--muted)',fontSize:'.85rem',marginBottom:isMobile?20:28}}>Firebase — sync em tempo real entre todos os dispositivos, sem conflitos.</p>
+    <div className="fade-up" style={{maxWidth:'min(780px,100%)',boxSizing:'border-box',height:isMobile?'auto':'calc(100vh - clamp(32px,5vh,80px))',overflowY:isMobile?'visible':'auto'}}>
+      <h1 className="serif" style={{fontSize:isMobile?'1.75rem':'clamp(1.6rem,2.8vh,2.6rem)',fontWeight:300,letterSpacing:'-0.02em',marginBottom:2}}>Sincronizar</h1>
+      <p style={{color:'var(--muted)',fontSize:'clamp(.75rem,1.1vh,.85rem)',marginBottom:isMobile?14:18}}>Sync em tempo real entre dispositivos via Google.</p>
 
-      {/* Stats */}
-      <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'repeat(3,1fr)',gap:10,marginBottom:isMobile?16:24}}>
+      <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':'repeat(auto-fill,minmax(180px,1fr))',gap:10,marginBottom:isMobile?10:14}}>
         {counts.map(s=>(
           <div key={s.label} className="card" style={{padding:'12px 16px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
             <span style={{fontSize:'.75rem',color:'var(--muted)'}}>{s.label}</span>
@@ -2935,7 +3053,6 @@ const SyncHub=({appState,onImport,onClearSave,fbUser,syncStatus,isMobile})=>{
         ))}
       </div>
 
-      {/* Local image warning */}
       {localImgCount>0&&(
         <div style={{background:'#FEF9E7',border:'1px solid #fde68a',borderRadius:10,padding:'12px 18px',marginBottom:16,display:'flex',alignItems:'center',gap:12,flexWrap:'wrap'}}>
           <Icon name="image" size={16} style={{color:'#92700b',flexShrink:0}}/>
@@ -2945,19 +3062,17 @@ const SyncHub=({appState,onImport,onClearSave,fbUser,syncStatus,isMobile})=>{
         </div>
       )}
 
-      {/* Status */}
       {status&&(
-        <div style={{padding:'12px 18px',borderRadius:10,marginBottom:20,background:status.type==='ok'?'#E8F5EC':status.type==='warn'?'#FEF9E7':'#FDEDED',border:`1px solid ${status.type==='ok'?'#bbf7d0':status.type==='warn'?'#fde68a':'#FECACA'}`,color:status.type==='ok'?'#276b3e':status.type==='warn'?'#92700b':'#9B1C1C',fontSize:'.85rem',display:'flex',alignItems:'center',gap:10}}>
+        <div style={{padding:'12px 18px',borderRadius:10,marginBottom:20,background:status.type==='ok'?'#E8F5EC':'#FDEDED',border:`1px solid ${status.type==='ok'?'#bbf7d0':'#FECACA'}`,color:status.type==='ok'?'#276b3e':'#9B1C1C',fontSize:'.85rem',display:'flex',alignItems:'center',gap:10}}>
           <Icon name={status.type==='ok'?'check-circle':'alert-circle'} size={16}/>{status.msg}
           <button onClick={()=>setStatus(null)} style={{marginLeft:'auto',background:'none',border:'none',cursor:'pointer',color:'inherit',padding:2}}><Icon name="x" size={14}/></button>
         </div>
       )}
 
-      {/* Re-upload progress */}
       {reuploadProgress&&(
         <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:10,padding:'14px 18px',marginBottom:16}}>
           <div style={{display:'flex',justifyContent:'space-between',marginBottom:8,fontSize:'.82rem',fontWeight:600}}>
-            <span>Enviando para Firebase Storage…</span>
+            <span>Enviando imagens...</span>
             <span style={{color:'var(--muted)'}}>{reuploadProgress.done}/{reuploadProgress.total}</span>
           </div>
           <div style={{height:6,background:'var(--bg)',borderRadius:3,overflow:'hidden'}}>
@@ -2966,146 +3081,98 @@ const SyncHub=({appState,onImport,onClearSave,fbUser,syncStatus,isMobile})=>{
         </div>
       )}
 
-      {/* ── Conexão Firebase ─────────────────────────────────────────────── */}
-      <div className="card" style={{padding:24,marginBottom:16}}>
-        <div style={{display:'flex',alignItems:'center',gap:16,marginBottom:16}}>
-          <div style={{width:52,height:52,borderRadius:'50%',overflow:'hidden',flexShrink:0,background:fbUser?'var(--text)':'var(--border)',display:'flex',alignItems:'center',justifyContent:'center'}}>
-            {fbUser?.photoURL
-              ?<img src={fbUser.photoURL} style={{width:'100%',height:'100%',objectFit:'cover'}} alt=""/>
-              :<Icon name="user" size={22} style={{color:fbUser?'white':'var(--muted)'}}/>}
-          </div>
-          <div style={{flex:1,minWidth:0}}>
-            <div style={{fontWeight:600,fontSize:'1rem',marginBottom:3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-              {fbUser?fbUser.displayName||fbUser.email:'Não conectado ao Firebase'}
+      {/* Google Account Card */}
+      <div className="card" style={{padding:28,marginBottom:16,display:'flex',flexDirection:'column',alignItems:'center',gap:20}}>
+        {fbUser ? (
+          <>
+            <div style={{display:'flex',alignItems:'center',gap:16,width:'100%'}}>
+              <div style={{width:56,height:56,borderRadius:'50%',overflow:'hidden',flexShrink:0,background:'var(--bg)',border:'2px solid var(--border)'}}>
+                {fbUser.photoURL
+                  ?<img src={fbUser.photoURL} style={{width:'100%',height:'100%',objectFit:'cover'}} alt=""/>
+                  :<div style={{width:'100%',height:'100%',display:'flex',alignItems:'center',justifyContent:'center',fontFamily:'Cormorant Garamond,serif',fontSize:'1.4rem',fontWeight:500,color:'var(--muted)'}}>{(fbUser.displayName||fbUser.email||'?').charAt(0)}</div>
+                }
+              </div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontWeight:600,fontSize:'1rem',marginBottom:3,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{fbUser.displayName||fbUser.email}</div>
+                <div style={{fontSize:'.78rem',color:syncColor,display:'flex',alignItems:'center',gap:5}}>
+                  <Icon name={syncIcon} size={12}/>{syncLabel}
+                </div>
+              </div>
             </div>
-            <div style={{fontSize:'.78rem',color:syncColor,display:'flex',alignItems:'center',gap:5}}>
-              <Icon name={syncIcon} size={12}/>{syncLabel}
+            <div style={{display:'flex',gap:8,width:'100%'}}>
+              <button className="btn btn-outline" style={{flex:1,justifyContent:'center'}} onClick={handleManualPush} disabled={loading}>
+                <Icon name="upload-cloud" size={14}/> Forçar sync
+              </button>
+              <button className="btn btn-ghost" style={{fontSize:'.8rem',color:'var(--muted)'}} onClick={signOut}>
+                <Icon name="log-out" size={13}/> Sair
+              </button>
             </div>
+          </>
+        ) : (
+          <>
+            <div style={{textAlign:'center'}}>
+              <div style={{width:64,height:64,borderRadius:'50%',background:'var(--bg)',border:'1px solid var(--border)',display:'flex',alignItems:'center',justifyContent:'center',margin:'0 auto 14px'}}>
+                <Icon name="cloud" size={26} style={{color:'var(--muted)'}}/>
+              </div>
+              <div style={{fontWeight:600,fontSize:'1rem',marginBottom:6}}>Entre com sua conta Google</div>
+              <div style={{fontSize:'.82rem',color:'var(--muted)',maxWidth:340,lineHeight:1.6}}>Seus dados ficam sincronizados automaticamente em todos os seus dispositivos.</div>
+            </div>
+            <button style={{
+              display:'flex',alignItems:'center',justifyContent:'center',gap:10,
+              width:'100%',maxWidth:320,padding:'13px 20px',borderRadius:10,
+              border:'1px solid var(--border)',background:'white',cursor:'pointer',
+              fontFamily:'Figtree,sans-serif',fontSize:'.95rem',fontWeight:600,color:'#1C1917',
+              boxShadow:'0 1px 4px rgba(0,0,0,.08)',transition:'box-shadow .15s',
+            }}
+            onMouseEnter={e=>e.currentTarget.style.boxShadow='0 2px 10px rgba(0,0,0,.12)'}
+            onMouseLeave={e=>e.currentTarget.style.boxShadow='0 1px 4px rgba(0,0,0,.08)'}
+            onClick={signIn}>
+              <svg width="20" height="20" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              Entrar com Google
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="card" style={{padding:isMobile?20:28,marginBottom:16}}>
+        <span className="label" style={{display:'block',marginBottom:16}}>Backup Manual</span>
+        <div style={{display:'flex',flexDirection:'column',gap:10}}>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            <button className="btn btn-outline" style={{flex:1,justifyContent:'center'}} onClick={exportData} disabled={loading}>
+              <Icon name="download" size={14}/> Exportar JSON
+            </button>
+            <button className="btn btn-outline" style={{flex:1,justifyContent:'center'}} onClick={()=>importRef.current.click()} disabled={loading}>
+              <Icon name="upload" size={14}/> Importar JSON
+            </button>
+            <input ref={importRef} type="file" accept=".json" style={{display:'none'}} onChange={handleImportFile}/>
           </div>
-          {fbUser&&(
-            <button className="btn btn-outline" style={{padding:'7px 14px',fontSize:'.8rem',flexShrink:0}} onClick={handleManualPush} disabled={loading}>
-              <Icon name="upload-cloud" size={13}/> Forçar push
+          {localImgCount>0&&(
+            <button className="btn btn-outline" style={{width:'100%',justifyContent:'center'}} onClick={handleReupload} disabled={loading}>
+              <Icon name="cloud-upload" size={14}/> Re-enviar Imagens ({localImgCount})
             </button>
           )}
         </div>
-        {!fbUser&&configured&&(
-          <button className="btn btn-dark" style={{width:'100%',justifyContent:'center',padding:'13px',fontSize:'.95rem'}} onClick={signIn}>
-            <svg width="18" height="18" viewBox="0 0 24 24" style={{flexShrink:0}}>
-              <path fill="white" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-              <path fill="white" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-              <path fill="white" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
-              <path fill="white" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-            </svg>
-            Entrar com Google
-          </button>
-        )}
-        {!fbUser&&!configured&&(
-          <div style={{textAlign:'center',padding:'8px 0',fontSize:'.83rem',color:'var(--muted)'}}>
-            Configure o Firebase abaixo para ativar o sync.
-          </div>
-        )}
-        {fbUser&&(
-          <button className="btn btn-ghost" style={{fontSize:'.8rem',color:'var(--muted)'}} onClick={signOut}>
-            <Icon name="log-out" size={13}/> Sair da conta ({fbUser.email})
-          </button>
-        )}
       </div>
 
-      {/* ── Setup Firebase ────────────────────────────────────────────────── */}
-      <div className="card" style={{marginBottom:16,overflow:'hidden'}}>
-        <details open={!configured}>
-          <summary style={{display:'flex',alignItems:'center',gap:8,padding:'18px 24px',cursor:'pointer',fontWeight:600,fontSize:'.88rem',listStyle:'none',userSelect:'none',WebkitAppearance:'none'}}>
-            <Icon name="settings" size={15}/>
-            Configurar Firebase
-            {configured
-              ?<span style={{background:'#E8F5EC',color:'#276b3e',border:'1px solid #bbf7d0',borderRadius:20,fontSize:'.65rem',fontWeight:700,padding:'1px 7px',letterSpacing:'.04em',marginLeft:4}}>✓ Ativo</span>
-              :<span style={{background:'#FEF9E7',color:'#92700b',border:'1px solid #fde68a',borderRadius:20,fontSize:'.65rem',fontWeight:700,padding:'1px 7px',letterSpacing:'.04em',marginLeft:4}}>Necessário</span>
-            }
-          </summary>
-          <div style={{padding:'0 24px 24px',borderTop:'1px solid var(--border)'}}>
-            <div style={{paddingTop:16,fontSize:'.82rem',lineHeight:1.75,color:'var(--muted)',background:'var(--bg)',borderRadius:10,padding:'14px 16px',marginBottom:14}}>
-              <strong style={{color:'var(--text)',display:'block',marginBottom:4}}>Setup (5 minutos, gratuito):</strong>
-              1. <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" style={{color:'var(--text)'}}>console.firebase.google.com</a> → Criar projeto<br/>
-              2. <strong>Authentication</strong> → Sign-in method → ativar <strong>Google</strong><br/>
-              3. <strong>Firestore Database</strong> → Criar banco → Modo produção → escolher região<br/>
-              4. <strong>Storage</strong> → Começar → Modo produção<br/>
-              5. ⚙ Configurações → Seus apps → <strong>Adicionar app Web</strong> → copiar o <code style={{background:'var(--border)',padding:'1px 5px',borderRadius:3}}>firebaseConfig</code><br/>
-              6. Em <strong>Firestore → Regras</strong> e <strong>Storage → Regras</strong>, cole e publique:
-            </div>
-            <div style={{background:'#1C1917',borderRadius:10,padding:'14px 16px',marginBottom:14,fontFamily:'monospace',fontSize:'.72rem',color:'#A8A29E',overflowX:'auto'}}>
-              <div style={{color:'#78716C',marginBottom:8}}>{'// Firestore Rules'}</div>
-              <div style={{color:'#E8E3DC'}}>{'rules_version = \'2\';'}<br/>{'service cloud.firestore {'}<br/>{'  match /databases/{database}/documents {'}<br/>{'    match /users/{uid}/{document=**} {'}<br/>{'      allow read, write: if request.auth.uid == uid;'}<br/>{'    }'}<br/>{'  }'}<br/>{'}'}</div>
-              <div style={{color:'#78716C',margin:'12px 0 8px'}}>{'// Storage Rules (mesma lógica)'}</div>
-              <div style={{color:'#E8E3DC'}}>{'rules_version = \'2\';'}<br/>{'service firebase.storage {'}<br/>{'  match /b/{bucket}/o {'}<br/>{'    match /users/{uid}/{path=**} {'}<br/>{'      allow read, write: if request.auth.uid == uid;'}<br/>{'    }'}<br/>{'  }'}<br/>{'}'}</div>
-            </div>
-            <div style={{fontWeight:600,fontSize:'.85rem',marginBottom:8}}>Cole seu <code style={{fontWeight:400,background:'var(--border)',padding:'1px 5px',borderRadius:3}}>firebaseConfig</code> aqui:</div>
-            <textarea
-              className="input-box"
-              rows={9}
-              value={cfgInput}
-              onChange={e=>setCfgInput(e.target.value)}
-              placeholder={'{\n  "apiKey": "AIza...",\n  "authDomain": "seu-projeto.firebaseapp.com",\n  "projectId": "seu-projeto",\n  "storageBucket": "seu-projeto.appspot.com",\n  "messagingSenderId": "123...",\n  "appId": "1:123...:web:abc..."\n}'}
-              style={{fontFamily:'monospace',fontSize:'.78rem',marginBottom:12,resize:'vertical'}}
-            />
-            <div style={{display:'flex',gap:8}}>
-              <button className="btn btn-dark" style={{flex:1,justifyContent:'center'}} onClick={saveFirebaseConfig} disabled={!cfgInput.trim()}>
-                <Icon name="check" size={13}/> Salvar e conectar
-              </button>
-              {configured&&(
-                <button className="btn btn-ghost" onClick={()=>{saveFbCfg({});setCfgInput('');showStatus('ok','Firebase desconectado.');}}>
-                  Desconectar
-                </button>
-              )}
-            </div>
-          </div>
-        </details>
-      </div>
-
-      {/* ── Imagens locais ────────────────────────────────────────────────── */}
-      {localImgCount>0&&(
-        <div className="card" style={{padding:'18px 24px',marginBottom:16}}>
-          <div style={{display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
-            <Icon name="image" size={18} style={{color:'var(--muted)',flexShrink:0}}/>
-            <div style={{flex:1}}>
-              <div style={{fontWeight:600,fontSize:'.85rem',marginBottom:2}}>Re-enviar imagens locais</div>
-              <div style={{fontSize:'.75rem',color:'var(--muted)'}}>{localImgCount} imagem(ns) armazenada(s) só neste dispositivo → Firebase Storage</div>
-            </div>
-            <button className="btn btn-outline" onClick={handleReupload} disabled={loading} style={{flexShrink:0}}>
-              <Icon name="upload-cloud" size={13}/> Re-enviar {localImgCount}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Backup manual ─────────────────────────────────────────────────── */}
-      <input ref={importRef} type="file" accept=".json" style={{display:'none'}} onChange={handleImportFile}/>
-      <div className="card" style={{padding:'18px 24px',marginBottom:16,display:'flex',alignItems:'center',gap:16,flexWrap:'wrap'}}>
-        <Icon name="hard-drive" size={18} style={{color:'var(--muted)',flexShrink:0}}/>
-        <div style={{flex:1}}>
-          <div style={{fontWeight:600,fontSize:'.85rem',marginBottom:2}}>Backup local</div>
-          <div style={{fontSize:'.75rem',color:'var(--muted)'}}>Exportar JSON com todas as imagens embutidas (backup offline completo).</div>
-        </div>
-        <div style={{display:'flex',gap:8,flexShrink:0}}>
-          <button className="btn btn-outline" style={{padding:'6px 14px',fontSize:'.8rem'}} onClick={exportData}><Icon name="download" size={13}/> Exportar</button>
-          <button className="btn btn-outline" style={{padding:'6px 14px',fontSize:'.8rem'}} onClick={()=>importRef.current.click()}><Icon name="upload" size={13}/> Importar</button>
-        </div>
-      </div>
-
-      {/* ── Danger ───────────────────────────────────────────────────────── */}
-      <div className="card" style={{padding:'16px 24px',display:'flex',alignItems:'center',gap:16}}>
-        <Icon name="alert-triangle" size={16} style={{color:'#9B1C1C',flexShrink:0}}/>
-        <div style={{flex:1}}>
-          <div style={{fontWeight:600,fontSize:'.85rem',marginBottom:1}}>Limpar dados locais</div>
-          <div style={{fontSize:'.75rem',color:'var(--muted)'}}>Apaga tudo e restaura os exemplos. Dados no Firebase permanecem intactos.</div>
-        </div>
-        <button className="btn btn-danger" style={{flexShrink:0,padding:'6px 14px',fontSize:'.8rem'}} onClick={()=>{if(window.confirm('Isso apagará todos os seus dados locais. Confirmar?')){localStorage.removeItem(LS_KEY);onClearSave();}}}>
-          <Icon name="trash-2" size={13}/> Limpar
+      {/* Danger zone */}
+      <div style={{borderTop:'1px solid var(--border)',paddingTop:20}}>
+        <span className="label" style={{display:'block',marginBottom:12,color:'#9B1C1C'}}>Zona Perigosa</span>
+        <button className="btn btn-danger" onClick={()=>{if(window.confirm('Resetar todos os dados para o estado inicial? Esta ação não pode ser desfeita.'))onClearSave();}}>
+          <Icon name="alert-triangle" size={14}/> Resetar tudo
         </button>
       </div>
+
     </div>
   );
-};
-// ─── MENTORS HUB ─────────────────────────────────────────────────────────────
+});
+
+// - MENTORS HUB -
 const MentorModal=({mentor,onClose,onSave,onDelete})=>{
   const [form,setForm]=useState({...mentor});
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
@@ -3204,7 +3271,7 @@ const MentorModal=({mentor,onClose,onSave,onDelete})=>{
   );
 };
 
-const MentorsHub=({mentors,setMentors,isMobile})=>{
+const MentorsHub=React.memo(({mentors,setMentors,isMobile})=>{
   const [selected,setSelected]=useState(null);
   const [search,setSearch]=useState('');
 
@@ -3237,11 +3304,11 @@ const MentorsHub=({mentors,setMentors,isMobile})=>{
   const selectedFresh=selected?mentors.find(m=>m.id===selected.id)||null:null;
 
   return(
-    <div className="fade-up" style={{maxWidth:900,margin:'0 auto'}}>
+    <div className="fade-up" style={{maxWidth:'100%',boxSizing:'border-box',height:isMobile?'auto':'calc(100vh - clamp(32px,5vh,80px))',overflowY:isMobile?'visible':'auto'}}>
       {selectedFresh&&<MentorModal mentor={selectedFresh} onClose={()=>setSelected(null)} onSave={save} onDelete={del}/>}
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:isMobile?'center':'flex-end',marginBottom:isMobile?20:28,gap:12,flexWrap:'wrap'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:isMobile?'center':'flex-end',marginBottom:isMobile?10:14,gap:10,flexWrap:'wrap',flexShrink:0}}>
         <div>
-          <h1 className="serif" style={{fontSize:isMobile?'1.75rem':'2.6rem',fontWeight:300,letterSpacing:'-0.02em',marginBottom:4}}>Mentores</h1>
+          <h1 className="serif" style={{fontSize:isMobile?'1.75rem':'clamp(1.6rem,2.8vh,2.6rem)',fontWeight:300,letterSpacing:'-0.02em',marginBottom:2}}>Mentores</h1>
           {!isMobile&&<p style={{color:'var(--muted)',fontSize:'.85rem',margin:0}}>Referencias, influencias e guias de estudo.</p>}
         </div>
         <button className="btn btn-dark" onClick={add}><Icon name="user-plus" size={14}/> Adicionar</button>
@@ -3317,15 +3384,22 @@ const MentorsHub=({mentors,setMentors,isMobile})=>{
       )}
     </div>
   );
-};
+});
 
-// ─── APP ──────────────────────────────────────────────────────────────────────
+// - APP -
 const App=()=>{
   const autoMobile=useIsMobile();
   const [forceMobile,setForceMobileRaw]=useState(null);
   const isMobile=forceMobile!==null?forceMobile:autoMobile;
   useEffect(()=>{ if(autoMobile)setForceMobileRaw(null); },[autoMobile]);
   const setForceMobile=val=>setForceMobileRaw(val);
+
+  // Remove splash screen as soon as App mounts
+  useEffect(()=>{
+    clearTimeout(window.__splashTimeout);
+    const splash=document.getElementById('splash');
+    if(splash){splash.style.opacity='0';setTimeout(()=>splash.remove(),350);}
+  },[]);
 
   const [view,setView]=useState('dashboard');
   const [selectedProject,setSelectedProject]=useState(null);
@@ -3348,9 +3422,12 @@ const App=()=>{
 
   // Firebase auth state listener — tracks sign-in across all devices
   useEffect(()=>{
-    if(!_fbReady&&!initFirebase())return;
-    const unsub=_fbAuth.onAuthStateChanged(user=>setFbUser(user||null));
-    return unsub;
+    let unsub=null;
+    initFirebase().then(ok=>{
+      if(!ok)return;
+      unsub=_fbAuth.onAuthStateChanged(user=>setFbUser(user||null));
+    });
+    return ()=>{if(unsub)unsub();};
   },[]);
 
   // Firestore real-time listener — fires instantly when any device saves
@@ -3387,7 +3464,7 @@ const App=()=>{
   const fbPushTimer=useRef(null);
   useEffect(()=>{
     const timer=setTimeout(()=>{
-      const state={projects,clients,mentors,notes,tasks,socialPosts,galleryPosts};
+      const state={projects,clients,mentors,notes,tasks,socialPosts,galleryPosts,pomoData};
       lsSave(state);
       setSaveFlash(true);
       clearTimeout(saveFlashTimer.current);
@@ -3404,9 +3481,9 @@ const App=()=>{
           setSyncStatus('error');
         }
       },2000);
-    },800);
-    return ()=>clearTimeout(timer);
-  },[projects,clients,mentors,notes,tasks,socialPosts,galleryPosts]);
+    },2500);
+    return ()=>{clearTimeout(timer);clearTimeout(saveFlashTimer.current);clearTimeout(fbPushTimer.current);};
+  },[projects,clients,mentors,notes,tasks,socialPosts,galleryPosts,pomoData]);
 
   const navigate=v=>{setView(v);if(v!=='project-detail')setSelectedProject(null);};
   const handleUpdateProject=p=>{setProjects(prev=>prev.map(x=>x.id===p.id?p:x));setSelectedProject(p);};
@@ -3451,7 +3528,7 @@ const App=()=>{
         ?<SidebarMobile activeView={view} setView={navigate} saveFlash={saveFlash} setForceMobile={setForceMobile}/>
         :<SidebarDesktop activeView={view} setView={navigate} saveFlash={saveFlash} isMobile={isMobile} setForceMobile={setForceMobile}/>
       }
-      <main className={isMobile?'main-mobile':''} style={isMobile?{flex:1,padding:'16px 16px 80px',overflowY:'auto',minHeight:'calc(100vh - 56px)',paddingTop:0}:{marginLeft:220,flex:1,padding:'48px 40px',overflowY:'auto',minHeight:'100vh'}}>
+      <main className={isMobile?'main-mobile':''} style={isMobile?{flex:1,padding:'16px 16px 80px',overflowY:'auto',minHeight:'calc(100vh - 56px)',paddingTop:0}:{marginLeft:220,flex:1,padding:'clamp(16px, 2.5vh, 40px) clamp(20px, 3vw, 48px)',overflowY:view==='dashboard'?'hidden':'auto',height:'100vh',boxSizing:'border-box',display:'flex',flexDirection:'column'}}>
         {view==='dashboard'      &&<Dashboard projects={projects} notes={notes} mentors={mentors} tasks={tasks} setTasks={setTasks} setView={navigate} setNotes={setNotes} pomoData={pomoData} setPomoData={setPomoData} isMobile={isMobile}/>}
         {view==='projects'       &&<ProjectsList projects={projects} setProjects={setProjects} onSelect={p=>{setSelectedProject(p);setView('project-detail');}} onAdd={()=>setShowNewProject(true)} isMobile={isMobile}/>}
         {view==='project-detail' &&selectedProject&&<ProjectDetail project={selectedProject} onBack={()=>setView('projects')} onUpdate={handleUpdateProject} onSoftDelete={()=>softDeleteProject(selectedProject.id)} globalMentors={mentors} onAddGlobalMentor={m=>{setMentors(prev=>[...prev,m]);}} isMobile={isMobile}/>}
